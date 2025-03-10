@@ -49,6 +49,45 @@ npm run dev
 
 4. Open http://localhost:5173 in your browser
 
+## Local Development with Community Solid Server
+
+### Setting Up Your Local WebID and Pod
+
+For development purposes, it's recommended to use a locally generated WebID rather than an external one. This approach avoids CORS issues and simplifies the development process.
+
+1. **Start the Community Solid Server**:
+   ```bash
+   npm start
+   ```
+   The server will run at http://localhost:3000
+
+2. **Create a Test Account**:
+   - Navigate to http://localhost:3000/.account/login/password/register/ in your browser
+   - Register a new account with a username and password
+   - After registration, you'll be logged in to your account dashboard
+
+3. **Create a Pod**:
+   - In your account dashboard, go to the "Pods" section
+   - Click "Create Pod" and give it a name (e.g., "testpod")
+   - The server will create a new Pod at http://localhost:3000/[pod-name]/
+
+4. **WebID Generation**:
+   - A WebID is automatically generated when you create a Pod
+   - Your WebID will be available at http://localhost:3000/[pod-name]/profile/card#me
+   - This WebID is fully configured and ready to use with your application
+
+5. **Using Your Local WebID**:
+   - When authenticating in your application, use http://localhost:3000 as the identity provider
+   - Log in with your test account credentials
+   - Your application will now be authenticated with your local WebID and can interact with your Pod
+
+### Benefits of Using a Local WebID
+
+- No CORS issues since everything is served from localhost
+- Complete control over your WebID and Pod for testing
+- Simplified authentication flow
+- Full functionality without additional configuration
+
 ## Development
 
 The project uses:
