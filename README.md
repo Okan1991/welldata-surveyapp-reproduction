@@ -83,6 +83,37 @@ To test this functionality:
 
 This demonstrates the interoperability of Solid applications and how users can control their data while using multiple applications.
 
+## Handling Authentication After Server Restarts
+
+When the Solid server restarts, client registrations are typically lost, which can cause authentication errors. This project includes two solutions to address this issue:
+
+### 1. Persistent Client Credentials Storage
+
+The project includes a custom `config.json` file that configures the Solid server to store client credentials in a file-based storage system. This allows client registrations to persist across server restarts.
+
+To use this configuration:
+
+```bash
+npm start
+```
+
+This will start the server with the custom configuration that enables persistent storage for client credentials.
+
+### 2. Clear Auth Data Button
+
+Both applications include a "Clear Auth Data" button that appears when you're logged in. This button:
+
+- Clears all Solid-related authentication data from your browser's local storage
+- Forces the application to re-register with the Solid server
+- Reloads the page so you can log in again
+
+Use this button when:
+- You see authentication errors after restarting the server
+- You get "Unknown client" errors
+- The server doesn't recognize your client ID
+
+This provides a simple way to recover from authentication issues without having to manually clear local storage through browser developer tools.
+
 ## Local Development with Community Solid Server
 
 ### Setting Up Your Local WebID and Pod

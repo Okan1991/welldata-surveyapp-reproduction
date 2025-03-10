@@ -21,5 +21,8 @@
     "@inrupt/solid-client": "^2.1.2",
     "@inrupt/solid-client-authn-browser": "^2.3.0",
     "@solid/community-server": "^7.0.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }

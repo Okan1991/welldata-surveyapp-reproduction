@@ -16,14 +16,32 @@ import {
   HStack,
   Text,
   useColorModeValue,
-  Badge
+  Badge,
+  Heading,
+  Code
 } from '@chakra-ui/react';
 import {
   login,
   handleIncomingRedirect,
   getDefaultSession,
-  fetch
+  logout
 } from '@inrupt/solid-client-authn-browser';
+
+/**
+ * Clears all Solid-related items from localStorage to force re-registration
+ * with the Solid server after a server restart.
+ */
+const clearSolidStorage = () => {
+  // Clear all Solid-related items from localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('solid-') || key.includes('oidc'))) {
+      localStorage.removeItem(key);
+    }
+  }
+  // Reload the page
+  window.location.reload();
+};
 
 interface AuthManagerProps {
   onLoginStatusChange: (isLoggedIn: boolean) => void;
@@ -34,6 +52,7 @@ const AuthManager = ({ onLoginStatusChange }: AuthManagerProps) => {
   const [webId, setWebId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('purple.200', 'purple.700');
@@ -45,6 +64,7 @@ const AuthManager = ({ onLoginStatusChange }: AuthManagerProps) => {
     }).then((info) => {
       if (info?.webId) {
         setWebId(info.webId);
+        setIsLoggedIn(true);
         onLoginStatusChange(true);
       } else {
         onLoginStatusChange(false);
@@ -80,6 +100,7 @@ const AuthManager = ({ onLoginStatusChange }: AuthManagerProps) => {
     const session = getDefaultSession();
     await session.logout();
     setWebId(null);
+    setIsLoggedIn(false);
     onLoginStatusChange(false);
   };
 
@@ -116,17 +137,23 @@ const AuthManager = ({ onLoginStatusChange }: AuthManagerProps) => {
               {webId}
             </Text>
           </HStack>
-          <Button 
-            colorScheme="purple" 
-            onClick={handleLogout}
-            size="lg"
-            variant="outline"
-          >
-            Log Out
-          </Button>
+          <HStack spacing={4}>
+            <Button 
+              colorScheme="purple" 
+              onClick={handleLogout}
+              size="lg"
+              variant="outline"
+            >
+              Log Out
+            </Button>
+            <Button colorScheme="red" variant="outline" onClick={clearSolidStorage}>
+              Clear Auth Data
+            </Button>
+          </HStack>
         </VStack>
       ) : (
         <VStack align="stretch" spacing={4}>
+          <Heading size="md">Login to your Solid Pod</Heading>
           <FormControl>
             <FormLabel fontWeight="bold">Solid Identity Provider</FormLabel>
             <InputGroup>
@@ -147,6 +174,9 @@ const AuthManager = ({ onLoginStatusChange }: AuthManagerProps) => {
           >
             Log In
           </Button>
+          <Text fontSize="sm">
+            For local development, use: <Code>http://localhost:3000</Code>
+          </Text>
         </VStack>
       )}
     </Box>
