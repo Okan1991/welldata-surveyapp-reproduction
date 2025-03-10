@@ -1,24 +1,27 @@
 {
-  "name": "vite-template-solid",
-  "version": "0.0.0",
-  "description": "",
-  "type": "module",
+  "name": "solid-local-fresh-app",
+  "version": "1.0.0",
+  "description": "Web interface for SOLID Local File Manager",
   "scripts": {
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview"
   },
-  "license": "MIT",
+  "author": {
+    "name": "Pieter Van Gorp",
+    "url": "https://github.com/pvgorp"
+  },
+  "license": "Apache-2.0",
   "devDependencies": {
-    "typescript": "^5.7.2",
-    "vite": "^6.0.0",
-    "vite-plugin-solid": "^2.11.6"
+    "typescript": "^5.3.3",
+    "vite": "^5.0.11",
+    "vite-plugin-solid": "^2.8.0"
   },
   "dependencies": {
-    "@inrupt/solid-client": "^2.1.2",
-    "@inrupt/solid-client-authn-browser": "^2.3.0",
+    "@inrupt/solid-client": "^2.0.0",
+    "@inrupt/solid-client-authn-browser": "^2.0.0",
     "@inrupt/vocab-common-rdf": "^1.0.5",
-    "solid-js": "^1.9.5"
+    "solid-js": "^1.8.11"
   }
 }
