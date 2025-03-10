@@ -15,6 +15,7 @@ import {
 } from '@inrupt/solid-client';
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
 import { DCTERMS } from '@inrupt/vocab-common-rdf';
+import { Parser as N3Parser } from 'n3';
 
 export default function PodManager() {
   const [containers, setContainers] = createSignal<Array<{ url: string, name: string }>>([]);
@@ -26,6 +27,8 @@ export default function PodManager() {
   const [error, setError] = createSignal('');
   const [showInfo, setShowInfo] = createSignal(false);
   const [currentStep, setCurrentStep] = createSignal(1);
+  const [editingFile, setEditingFile] = createSignal<{ url: string; title: string; description: string } | null>(null);
+  const [rdfValidationError, setRdfValidationError] = createSignal('');
 
   const session = getDefaultSession();
 
@@ -169,9 +172,30 @@ export default function PodManager() {
     }
   };
 
+  const validateRdf = (content: string): { isValid: boolean; error?: string } => {
+    const parser = new N3Parser();
+    try {
+      // Try to parse the content as Turtle (TTL) format
+      parser.parse(content);
+      return { isValid: true };
+    } catch (error: any) {
+      return { 
+        isValid: false, 
+        error: `Invalid RDF content: ${error.message || 'Unknown error'}` 
+      };
+    }
+  };
+
   const createFile = async () => {
     if (!selectedContainer() || !newFileName()) {
       setError('Please select a container and enter a file name');
+      return;
+    }
+
+    // Validate RDF content before submission
+    const validation = validateRdf(fileContent());
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid RDF content');
       return;
     }
 
@@ -190,6 +214,7 @@ export default function PodManager() {
       setNewFileName('');
       setFileContent('');
       setError('');
+      setRdfValidationError('');
     } catch (e) {
       setError(`Error creating file: ${e}`);
     }
@@ -202,6 +227,59 @@ export default function PodManager() {
       setError('');
     } catch (e) {
       setError(`Error deleting file: ${e}`);
+    }
+  };
+
+  const startEditing = (file: { url: string; title?: string; description?: string }) => {
+    setEditingFile({
+      url: file.url,
+      title: file.title || getFileName(file.url),
+      description: file.description || ''
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingFile(null);
+  };
+
+  const saveFileChanges = async () => {
+    if (!editingFile()) return;
+
+    // Validate RDF content before submission
+    const validation = validateRdf(editingFile()!.description);
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid RDF content');
+      return;
+    }
+
+    try {
+      const file = editingFile()!;
+      
+      // Get the current dataset
+      const currentDataset = await getSolidDataset(file.url, { fetch: session.fetch });
+      
+      // Create new dataset with updated content
+      let dataset = createSolidDataset();
+      const thing = buildThing(createThing({ name: getFileName(file.url) }))
+        .addStringNoLocale(DCTERMS.title, file.title)
+        .addStringNoLocale(DCTERMS.description, file.description)
+        .build();
+
+      dataset = setThing(dataset, thing);
+      
+      // Save the updated dataset
+      await saveSolidDatasetAt(
+        file.url, 
+        dataset,
+        { fetch: session.fetch }
+      );
+      
+      await listFiles();
+      setEditingFile(null);
+      setError('');
+      setRdfValidationError('');
+    } catch (e) {
+      setError(`Error updating file: ${e}`);
     }
   };
 
@@ -262,18 +340,79 @@ export default function PodManager() {
                   {(file) => (
                     <li>
                       <div class="file-item">
-                        <div class="file-info">
-                          <strong>Title:</strong> {file.title || getFileName(file.url)}
-                          <Show when={file.description}>
-                            <br /><strong>Content:</strong> {file.description}
-                          </Show>
-                        </div>
-                        <button 
-                          onClick={() => deleteFile(file.url)}
-                          class="danger"
+                        <Show
+                          when={editingFile()?.url === file.url}
+                          fallback={
+                            <>
+                              <div class="file-info">
+                                <strong>Title:</strong> {file.title || getFileName(file.url)}
+                                <Show when={file.description}>
+                                  <br /><strong>RDF Content:</strong> {file.description}
+                                </Show>
+                              </div>
+                              <div class="file-actions">
+                                <button 
+                                  onClick={() => startEditing(file)}
+                                  class="secondary"
+                                >
+                                  Edit
+                                </button>
+                                <button 
+                                  onClick={() => deleteFile(file.url)}
+                                  class="danger"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </>
+                          }
                         >
-                          Delete
-                        </button>
+                          <div class="file-edit">
+                            <div class="input-group">
+                              <label>
+                                Title:
+                                <input
+                                  type="text"
+                                  value={editingFile()!.title}
+                                  onInput={(e) => setEditingFile({
+                                    ...editingFile()!,
+                                    title: e.currentTarget.value
+                                  })}
+                                />
+                              </label>
+                            </div>
+                            <div class="input-group">
+                              <label>
+                                RDF Content (Turtle format):
+                                <textarea
+                                  value={editingFile()!.description}
+                                  onInput={(e) => {
+                                    const newContent = e.currentTarget.value;
+                                    setEditingFile({
+                                      ...editingFile()!,
+                                      description: newContent
+                                    });
+                                    const validation = validateRdf(newContent);
+                                    setRdfValidationError(validation.error || '');
+                                  }}
+                                  placeholder="Enter valid RDF content in Turtle format"
+                                />
+                              </label>
+                              <Show when={rdfValidationError()}>
+                                <p class="validation-error">{rdfValidationError()}</p>
+                              </Show>
+                            </div>
+                            <div class="edit-actions">
+                              <button 
+                                onClick={saveFileChanges}
+                                disabled={!!rdfValidationError()}
+                              >
+                                Save
+                              </button>
+                              <button onClick={cancelEditing} class="secondary">Cancel</button>
+                            </div>
+                          </div>
+                        </Show>
                       </div>
                     </li>
                   )}
@@ -296,15 +435,33 @@ export default function PodManager() {
               </div>
               <div class="input-group">
                 <label>
-                  File Content:
+                  RDF Content (Turtle format):
                   <textarea
                     value={fileContent()}
-                    onInput={(e) => setFileContent(e.currentTarget.value)}
-                    placeholder="Enter file content"
+                    onInput={(e) => {
+                      const newContent = e.currentTarget.value;
+                      setFileContent(newContent);
+                      const validation = validateRdf(newContent);
+                      setRdfValidationError(validation.error || '');
+                    }}
+                    placeholder="Enter valid RDF content in Turtle format, e.g.:
+@prefix dc: <http://purl.org/dc/elements/1.1/>.
+@prefix : <#>.
+:document
+    dc:title 'Example';
+    dc:description 'This is an example.'."
                   />
                 </label>
+                <Show when={rdfValidationError()}>
+                  <p class="validation-error">{rdfValidationError()}</p>
+                </Show>
               </div>
-              <button onClick={createFile}>Create File</button>
+              <button 
+                onClick={createFile}
+                disabled={!!rdfValidationError()}
+              >
+                Create File
+              </button>
             </div>
           </div>
         }

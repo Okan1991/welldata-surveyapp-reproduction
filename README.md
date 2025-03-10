@@ -18,11 +18,16 @@ A web application for managing files in a local SOLID pod with OpenID Connect su
 ## Project Structure
 
 - `/` - Root directory containing the SOLID server configuration
-- `/app` - SolidJS web application
+- `/app` - First SolidJS web application with default styling
   - `/src` - Source code
   - `/src/components` - React components
   - `/src/App.tsx` - Main application component
   - `/src/index.tsx` - Application entry point
+- `/app2` - Second React web application with Chakra UI styling
+  - `/src` - Source code
+  - `/src/components` - React components
+  - `/src/App.tsx` - Main application component
+  - `/src/main.tsx` - Application entry point
 
 ## Setup
 
@@ -31,23 +36,52 @@ A web application for managing files in a local SOLID pod with OpenID Connect su
 # Install server dependencies
 npm install
 
-# Install web app dependencies
+# Install first web app dependencies
 cd app
 npm install
+cd ..
+
+# Install second web app dependencies
+cd app2
+npm install
+cd ..
 ```
 
-2. Start the SOLID server:
+2. Start all components (server and both apps):
 ```bash
-npm start
-```
-
-3. Start the web application:
-```bash
-cd app
 npm run dev
 ```
 
-4. Open http://localhost:5173 in your browser
+Alternatively, you can start components individually:
+
+```bash
+# Start the SOLID server
+npm run start:server
+
+# Start the first web application
+npm run dev:app1
+
+# Start the second web application
+npm run dev:app2
+```
+
+3. Access the applications:
+   - First app: http://localhost:5173
+   - Second app: http://localhost:5174
+
+## Testing Multiple Applications with the Same Pod
+
+This project demonstrates how multiple applications can authenticate and access the same Solid Pod, which is a key feature of the Solid ecosystem. Both applications use the same local WebID and Pod, but have completely different user interfaces.
+
+To test this functionality:
+
+1. Start both applications and the Solid server
+2. Create a test account and Pod on the local Solid server
+3. Log in to both applications using the same WebID
+4. Make changes in one application (e.g., create a container)
+5. Observe that the changes are visible in the other application
+
+This demonstrates the interoperability of Solid applications and how users can control their data while using multiple applications.
 
 ## Local Development with Community Solid Server
 
