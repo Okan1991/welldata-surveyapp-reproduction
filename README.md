@@ -18,16 +18,9 @@ A web application for managing files in a local SOLID pod with OpenID Connect su
 ## Project Structure
 
 - `/` - Root directory containing the SOLID server configuration
-- `/app` - First SolidJS web application with default styling
-  - `/src` - Source code
-  - `/src/components` - React components
-  - `/src/App.tsx` - Main application component
-  - `/src/index.tsx` - Application entry point
-- `/app2` - Second React web application with Chakra UI styling
-  - `/src` - Source code
-  - `/src/components` - React components
-  - `/src/App.tsx` - Main application component
-  - `/src/main.tsx` - Application entry point
+- `/app` - SolidJS application for managing files in a SOLID pod
+- `/app2` - Alternative React application with Chakra UI
+- `/scripts` - Utility scripts for managing client registrations and authentication
 
 ## Setup
 
@@ -85,34 +78,54 @@ This demonstrates the interoperability of Solid applications and how users can c
 
 ## Handling Authentication After Server Restarts
 
-When the Solid server restarts, client registrations are typically lost, which can cause authentication errors. This project includes two solutions to address this issue:
+When the Solid server restarts, client registrations are typically lost, which can cause authentication errors. This project includes several solutions to address this issue:
 
-### 1. Persistent Client Credentials Storage
+### 1. Persistent Client IDs with Scripts
 
-The project includes a custom `config.json` file that configures the Solid server to store client credentials in a file-based storage system. This allows client registrations to persist across server restarts.
-
-To use this configuration:
+The `/scripts` directory contains utilities to register client applications with the Solid server and update the applications to use fixed client IDs:
 
 ```bash
-npm start
+# One-step setup (starts servers and registers clients)
+./scripts/setup-solid-env.sh
+
+# Or run the steps individually:
+# 1. Start the Solid server
+npm run start:server
+
+# 2. Register client applications
+./scripts/register-clients.sh
+
+# 3. Update application components
+./scripts/update-app-clients.sh
+
+# 4. Apply the changes
+cp app/src/components/AuthManager.fixed.tsx app/src/components/AuthManager.tsx
+cp app2/src/components/AuthManager.fixed.tsx app2/src/components/AuthManager.tsx
+
+# 5. Start the applications
+cd app && npm run dev
+cd app2 && npm run dev
 ```
 
-This will start the server with the custom configuration that enables persistent storage for client credentials.
+See the [scripts README](./scripts/README.md) for more details.
 
 ### 2. Clear Auth Data Button
 
 Both applications include a "Clear Auth Data" button that appears when you're logged in. This button:
 
 - Clears all Solid-related authentication data from your browser's local storage
-- Forces the application to re-register with the Solid server
-- Reloads the page so you can log in again
+- Reloads the page so you can log in again with fresh credentials
 
 Use this button when:
 - You see authentication errors after restarting the server
-- You get "Unknown client" errors
-- The server doesn't recognize your client ID
+- You want to switch to a different Solid identity provider
+- You're experiencing other authentication issues
 
 This provides a simple way to recover from authentication issues without having to manually clear local storage through browser developer tools.
+
+### 3. Bookmarklet for Quick Clearing
+
+For convenience, you can create a bookmarklet to clear Solid-related storage with a single click. See the [scripts README](./scripts/README.md) for instructions on setting up this bookmarklet.
 
 ## Local Development with Community Solid Server
 

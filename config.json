@@ -31,13 +31,25 @@
   ],
   "@graph": [
     {
-      "comment": "Enable file-based storage for client credentials",
-      "@id": "urn:solid-server:default:ClientCredentialsStore",
-      "@type": "FileSystemClientCredentialsStore",
-      "baseUrl": {
+      "comment": "Enable file-based storage for account data",
+      "@id": "urn:solid-server:default:AccountStore",
+      "@type": "FileSystemAccountStore",
+"baseUrl": {
         "@id": "urn:solid-server:default:variable:baseUrl"
       },
-      "rootFilePath": "./.data/client-credentials/"
+      "rootFilePath": "./.data/accounts/"
+    },
+    {
+      "comment": "Enable file-based storage for pod data",
+      "@id": "urn:solid-server:default:PodManager",
+      "@type": "FileSystemPodManager",
+      "resourceStore": {
+        "@id": "urn:solid-server:default:ResourceStore"
+      },
+      "identifierStrategy": {
+        "@id": "urn:solid-server:default:IdentifierStrategy"
+      },
+      "rootFilePath": "./.data/pods/"
     }
-  ]
+      ]
 } 

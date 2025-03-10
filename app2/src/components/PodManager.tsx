@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -24,10 +24,12 @@ import {
   createContainerAt,
   deleteContainer,
   deleteFile,
-  getDefaultSession,
   FetchError
 } from '@inrupt/solid-client';
-import { fetch } from '@inrupt/solid-client-authn-browser';
+import { 
+  fetch,
+  getDefaultSession
+} from '@inrupt/solid-client-authn-browser';
 
 // Simple icons using inline SVG
 const FolderIcon = () => (

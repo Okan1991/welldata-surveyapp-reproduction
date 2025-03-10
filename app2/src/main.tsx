@@ -7,25 +7,33 @@ import App from './App';
 const theme = extendTheme({
   colors: {
     brand: {
-      50: '#f3e5f5',
-      100: '#e1bee7',
-      200: '#ce93d8',
-      300: '#ba68c8',
-      400: '#ab47bc',
-      500: '#9c27b0',
-      600: '#8e24aa',
-      700: '#7b1fa2',
-      800: '#6a1b9a',
-      900: '#4a148c',
+      50: '#f5e9ff',
+      100: '#dac1f0',
+      200: '#c098e1',
+      300: '#a571d2',
+      400: '#8b49c3',
+      500: '#7230aa',
+      600: '#592585',
+      700: '#401a60',
+      800: '#270f3c',
+      900: '#10031a',
     },
+    purple: {
+      50: '#f5e9ff',
+      100: '#dac1f0',
+      200: '#c098e1',
+      300: '#a571d2',
+      400: '#8b49c3',
+      500: '#7230aa',
+      600: '#592585',
+      700: '#401a60',
+      800: '#270f3c',
+      900: '#10031a',
+    }
   },
-  styles: {
-    global: {
-      body: {
-        bg: 'gray.50',
-        color: 'gray.800',
-      },
-    },
+  config: {
+    initialColorMode: 'light',
+    useSystemColorMode: false,
   },
 });
 
@@ -34,5 +42,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ChakraProvider theme={theme}>
       <App />
     </ChakraProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 ); 

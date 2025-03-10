@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -18,14 +18,30 @@ import {
   useColorModeValue,
   Badge,
   Heading,
-  Code
+  Code,
+  Divider,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  Stack,
+  useToast
 } from '@chakra-ui/react';
 import {
   login,
   handleIncomingRedirect,
   getDefaultSession,
-  logout
+  Session
 } from '@inrupt/solid-client-authn-browser';
+import clientCredentials from '../../../shared/client-credentials.json';
+import clientCredentialsDynamic from '../../../.data/client-credentials/app2-credentials.json';
+
+
+//const clientId = clientCredentials.app2.client_id;
+const clientId = clientCredentialsDynamic.client_id;
+//const clientSecret = clientCredentials.app2.client_secret;
+const clientSecret = clientCredentialsDynamic.client_secret;
+
 
 /**
  * Clears all Solid-related items from localStorage to force re-registration
@@ -44,143 +60,167 @@ const clearSolidStorage = () => {
 };
 
 interface AuthManagerProps {
-  onLoginStatusChange: (isLoggedIn: boolean) => void;
+  onLogin: (webId: string) => void;
+  onLogout: () => void;
 }
 
-const AuthManager = ({ onLoginStatusChange }: AuthManagerProps) => {
-  const [oidcIssuer, setOidcIssuer] = useState('http://localhost:3000');
-  const [webId, setWebId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('purple.200', 'purple.700');
+  const [webId, setWebId] = useState('');
+  const [issuer, setIssuer] = useState('http://localhost:3000');
+  const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
-    // Handle the redirect from the Solid identity provider
-    handleIncomingRedirect({
-      restorePreviousSession: true
-    }).then((info) => {
-      if (info?.webId) {
-        setWebId(info.webId);
-        setIsLoggedIn(true);
-        onLoginStatusChange(true);
-      } else {
-        onLoginStatusChange(false);
+    const checkSession = async () => {
+      setLoading(true);
+      try {
+        await handleIncomingRedirect({ restorePreviousSession: true });
+        const session = getDefaultSession();
+        if (session.info.isLoggedIn) {
+          setIsLoggedIn(true);
+          setWebId(session.info.webId || '');
+          onLogin(session.info.webId || '');
+        }
+      } catch (error) {
+        console.error('Error during session restoration:', error);
+        toast({
+          title: 'Authentication Error',
+          description: 'Failed to restore session. Please try logging in again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setLoading(false);
       }
-    }).catch((e) => {
-      setError(`Authentication error: ${e.message}`);
-      onLoginStatusChange(false);
-    });
-  }, [onLoginStatusChange]);
+    };
+
+    checkSession();
+  }, [onLogin, toast]);
 
   const handleLogin = async () => {
-    if (!oidcIssuer) {
-      setError('Please enter an OIDC issuer URL');
-      return;
-    }
-
-    setIsLoggingIn(true);
-    setError(null);
-
+    setLoading(true);
     try {
       await login({
-        oidcIssuer,
-        redirectUrl: window.location.href,
-        clientName: 'Solid Pod Manager - Alternative UI'
+        oidcIssuer: issuer,
+        redirectUrl: clientCredentials.app2.redirect_uri,
+        clientId: clientId,
+        clientSecret: clientSecret
       });
-    } catch (e) {
-      setError(`Login failed: ${e instanceof Error ? e.message : String(e)}`);
-      setIsLoggingIn(false);
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: 'Login Failed',
+        description: 'Could not log in. Please check your identity provider and try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      setLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    const session = getDefaultSession();
-    await session.logout();
-    setWebId(null);
-    setIsLoggedIn(false);
-    onLoginStatusChange(false);
+    setLoading(true);
+    try {
+      const session = getDefaultSession();
+      await session.logout();
+      setIsLoggedIn(false);
+      setWebId('');
+      onLogout();
+      toast({
+        title: 'Logged Out',
+        description: 'You have been successfully logged out.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: 'Logout Failed',
+        description: 'Could not log out. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearLocalStorage = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    toast({
+      title: 'Storage Cleared',
+      description: 'Local storage has been cleared. Please refresh the page.',
+      status: 'info',
+      duration: 5000,
+      isClosable: true,
+    });
   };
 
   return (
-    <Box 
-      p={5} 
-      bg={bgColor} 
-      borderRadius="lg" 
-      boxShadow="md"
-      borderRight="4px solid" 
-      borderColor="brand.500"
-    >
-      {error && (
-        <Alert status="error" mb={4} borderRadius="md">
-          <AlertIcon />
-          <AlertTitle mr={2}>Error!</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-          <CloseButton 
-            position="absolute" 
-            right="8px" 
-            top="8px" 
-            onClick={() => setError(null)} 
-          />
-        </Alert>
-      )}
-
-      {webId ? (
-        <VStack align="stretch" spacing={4}>
-          <HStack>
-            <Badge colorScheme="green" fontSize="md" px={2} py={1}>
-              Logged In
-            </Badge>
-            <Text fontWeight="bold" flex="1">
-              {webId}
-            </Text>
-          </HStack>
-          <HStack spacing={4}>
-            <Button 
-              colorScheme="purple" 
-              onClick={handleLogout}
-              size="lg"
-              variant="outline"
-            >
-              Log Out
-            </Button>
-            <Button colorScheme="red" variant="outline" onClick={clearSolidStorage}>
-              Clear Auth Data
-            </Button>
-          </HStack>
-        </VStack>
-      ) : (
-        <VStack align="stretch" spacing={4}>
-          <Heading size="md">Login to your Solid Pod</Heading>
-          <FormControl>
-            <FormLabel fontWeight="bold">Solid Identity Provider</FormLabel>
-            <InputGroup>
-              <InputLeftAddon>URL</InputLeftAddon>
-              <Input 
-                value={oidcIssuer}
-                onChange={(e) => setOidcIssuer(e.target.value)}
-                placeholder="Enter your Solid identity provider URL"
+    <Card width="100%" maxW="md" mx="auto">
+      <CardHeader>
+        <Heading size="md">Solid Authentication</Heading>
+        <Text fontSize="sm" color="gray.500">
+          {isLoggedIn ? 'You are logged in' : 'Log in to your Solid Pod'}
+        </Text>
+      </CardHeader>
+      <CardBody>
+        {!isLoggedIn ? (
+          <Stack spacing={4}>
+            <FormControl>
+              <FormLabel>Solid Identity Provider</FormLabel>
+              <Input
+                value={issuer}
+                onChange={(e) => setIssuer(e.target.value)}
+                placeholder="Enter your Solid Identity Provider"
               />
-            </InputGroup>
-          </FormControl>
-          <Button 
-            colorScheme="purple" 
+            </FormControl>
+          </Stack>
+        ) : (
+          <Stack spacing={2}>
+            <Text fontWeight="medium" fontSize="sm">WebID:</Text>
+            <Text fontSize="sm" wordBreak="break-all">{webId}</Text>
+          </Stack>
+        )}
+      </CardBody>
+      <CardFooter flexDirection="column" gap={2}>
+        {!isLoggedIn ? (
+          <Button
+            colorScheme="blue"
+            width="100%"
             onClick={handleLogin}
-            isLoading={isLoggingIn}
+            isLoading={loading}
             loadingText="Logging in..."
-            size="lg"
           >
             Log In
           </Button>
-          <Text fontSize="sm">
-            For local development, use: <Code>http://localhost:3000</Code>
-          </Text>
-        </VStack>
-      )}
-    </Box>
+        ) : (
+          <Button
+            colorScheme="blue"
+            width="100%"
+            onClick={handleLogout}
+            isLoading={loading}
+            loadingText="Logging out..."
+          >
+            Log Out
+          </Button>
+        )}
+        <Button
+          colorScheme="red"
+          width="100%"
+          onClick={clearLocalStorage}
+        >
+          Clear Auth Data
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
-export default AuthManager; 
+export default AuthManager;
