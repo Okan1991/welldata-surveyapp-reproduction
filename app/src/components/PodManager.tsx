@@ -24,6 +24,8 @@ export default function PodManager() {
   const [newFileName, setNewFileName] = createSignal('');
   const [fileContent, setFileContent] = createSignal('');
   const [error, setError] = createSignal('');
+  const [showInfo, setShowInfo] = createSignal(false);
+  const [currentStep, setCurrentStep] = createSignal(1);
 
   const session = getDefaultSession();
 
@@ -205,133 +207,174 @@ export default function PodManager() {
 
   return (
     <div class="pod-manager">
-      <div class="info-section">
-        <h2>About SOLID Data Storage</h2>
-        <p>In SOLID, all data is stored as RDF (Resource Description Framework). This means:</p>
-        <ul>
-          <li>Files are created as .ttl (Turtle) files containing structured data</li>
-          <li>Each file has properties like 'title' and 'description' defined using standard vocabularies</li>
-          <li>We're using the Dublin Core Terms vocabulary (DCTERMS) to describe the files</li>
-        </ul>
+      <button 
+        class="info-button"
+        onClick={() => setShowInfo(!showInfo())}
+        title="About SOLID Data Storage"
+      >
+        i
+      </button>
+
+      <Show when={showInfo()}>
+        <div class="info-dialog">
+          <h3>About SOLID Data Storage</h3>
+          <p>In SOLID, all data is stored as RDF (Resource Description Framework). This means:</p>
+          <ul>
+            <li>Files are created as .ttl (Turtle) files containing structured data</li>
+            <li>Each file has properties like 'title' and 'description' defined using standard vocabularies</li>
+            <li>We're using the Dublin Core Terms vocabulary (DCTERMS) to describe the files</li>
+          </ul>
+        </div>
+      </Show>
+
+      <div class="breadcrumbs">
+        <div 
+          class="breadcrumb-item" 
+          onClick={() => {
+            if (selectedContainer()) {
+              setCurrentStep(1);
+              setSelectedContainer('');
+              setFiles([]);
+            }
+          }}
+          style={{ cursor: selectedContainer() ? 'pointer' : 'default' }}
+        >
+          Container Selection
+        </div>
+        <Show when={selectedContainer()}>
+          <div class="breadcrumb-item active">{getContainerName(selectedContainer())}</div>
+        </Show>
       </div>
 
       <Show when={error()}>
         <p class="error">{error()}</p>
       </Show>
 
-      <div class="container-section">
-        <h3>Step 1: Select or Create a Container</h3>
-        <div class="container-list">
-          <h4>Existing Containers:</h4>
-          <Show 
-            when={containers().length > 0}
-            fallback={<p>No containers found. Create one below.</p>}
-          >
-            <ul>
-              <For each={containers()}>
-                {(container) => (
-                  <li class={container.url === selectedContainer() ? 'selected' : ''}>
-                    <div class="container-item">
-                      <span>{container.name}</span>
-                      <div class="container-actions">
+      <Show 
+        when={currentStep() === 1}
+        fallback={
+          <div class="files-section">
+            <h3>File Management</h3>
+            <button onClick={listFiles}>Refresh Files List</button>
+            <Show when={files().length > 0}>
+              <ul>
+                <For each={files()}>
+                  {(file) => (
+                    <li>
+                      <div class="file-item">
+                        <div class="file-info">
+                          <strong>Title:</strong> {file.title || getFileName(file.url)}
+                          <Show when={file.description}>
+                            <br /><strong>Content:</strong> {file.description}
+                          </Show>
+                        </div>
                         <button 
-                          onClick={() => setSelectedContainer(container.url)}
-                          class={container.url === selectedContainer() ? 'selected' : ''}
-                        >
-                          {container.url === selectedContainer() ? 'Selected' : 'Select'}
-                        </button>
-                        <button 
-                          onClick={() => deleteContainer(container.url)}
+                          onClick={() => deleteFile(file.url)}
                           class="danger"
                         >
                           Delete
                         </button>
                       </div>
-                    </div>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
-        </div>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
 
-        <div class="create-container">
-          <h4>Create New Container:</h4>
-          <div class="input-group">
-            <label>
-              Container Name:
-              <input
-                type="text"
-                value={newContainerName()}
-                onInput={(e) => setNewContainerName(e.currentTarget.value)}
-                placeholder="Enter container name (e.g., my-files)"
-              />
-            </label>
+            <div class="create-file-section">
+              <h4>Create New File:</h4>
+              <div class="input-group">
+                <label>
+                  File Title:
+                  <input
+                    type="text"
+                    value={newFileName()}
+                    onInput={(e) => setNewFileName(e.currentTarget.value)}
+                    placeholder="Enter file name"
+                  />
+                </label>
+              </div>
+              <div class="input-group">
+                <label>
+                  File Content:
+                  <textarea
+                    value={fileContent()}
+                    onInput={(e) => setFileContent(e.currentTarget.value)}
+                    placeholder="Enter file content"
+                  />
+                </label>
+              </div>
+              <button onClick={createFile}>Create File</button>
+            </div>
           </div>
-          <button onClick={createContainer}>Create Container</button>
-        </div>
-      </div>
-
-      <Show when={selectedContainer()}>
-        <div class="files-section">
-          <h3>Step 2: Manage Files</h3>
-          <p>View and manage files in container: <strong>{selectedContainer()}</strong></p>
-          <button onClick={listFiles}>Refresh Files List</button>
-          <Show when={files().length > 0}>
-            <ul>
-              <For each={files()}>
-                {(file) => (
-                  <li>
-                    <div class="file-item">
-                      <div class="file-info">
-                        <strong>File URL:</strong> {file.url}
-                        <Show when={file.title}>
-                          <br /><strong>Title:</strong> {file.title}
-                        </Show>
-                        <Show when={file.description}>
-                          <br /><strong>Content:</strong> {file.description}
-                        </Show>
+        }
+      >
+        <div class="container-section">
+          <h3>Container Management</h3>
+          <div class="container-list">
+            <h4>Existing Containers:</h4>
+            <Show 
+              when={containers().length > 0}
+              fallback={<p>No containers found. Create one below.</p>}
+            >
+              <ul>
+                <For each={containers()}>
+                  {(container) => (
+                    <li>
+                      <div class="container-item">
+                        <span>{container.name}</span>
+                        <div class="container-actions">
+                          <button 
+                            onClick={() => {
+                              setSelectedContainer(container.url);
+                              setCurrentStep(2);
+                              listFiles();
+                            }}
+                          >
+                            Select
+                          </button>
+                          <button 
+                            onClick={() => deleteContainer(container.url)}
+                            class="danger"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <button 
-                        onClick={() => deleteFile(file.url)}
-                        class="danger"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+          </div>
 
-          <div class="create-file-section">
-            <h4>Create New File:</h4>
+          <div class="create-container">
+            <h4>Create New Container:</h4>
             <div class="input-group">
               <label>
-                File Title (will be stored as dcterms:title):
+                Container Name:
                 <input
                   type="text"
-                  value={newFileName()}
-                  onInput={(e) => setNewFileName(e.currentTarget.value)}
-                  placeholder="Enter file name"
+                  value={newContainerName()}
+                  onInput={(e) => setNewContainerName(e.currentTarget.value)}
+                  placeholder="Enter container name (e.g., my-files)"
                 />
               </label>
             </div>
-            <div class="input-group">
-              <label>
-                File Content (will be stored as dcterms:description):
-                <textarea
-                  value={fileContent()}
-                  onInput={(e) => setFileContent(e.currentTarget.value)}
-                  placeholder="Enter file content"
-                />
-              </label>
-            </div>
-            <button onClick={createFile}>Create File</button>
+            <button onClick={async () => {
+              await createContainer();
+              setCurrentStep(2);
+            }}>Create Container</button>
           </div>
         </div>
       </Show>
     </div>
   );
+}
+
+// Helper function to extract file name from URL
+function getFileName(url: string): string {
+  const parts = url.split('/');
+  const fileName = parts[parts.length - 1];
+  return decodeURIComponent(fileName.replace('.ttl', ''));
 } 
