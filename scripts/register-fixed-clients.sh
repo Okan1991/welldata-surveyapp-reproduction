@@ -27,8 +27,7 @@ echo "Registering client applications with the Solid server..."
 
 # Register the first application
 echo "Registering $APP1_NAME..."
-APP1_RESPONSE=$(curl -s -X POST \
-  "$SOLID_SERVER/.oidc/reg" \
+curl -X POST "$SOLID_SERVER/.oidc/reg" \
   -H "Content-Type: application/json" \
   -d "{
     \"application_type\": \"web\",
@@ -37,22 +36,11 @@ APP1_RESPONSE=$(curl -s -X POST \
     \"scope\": \"openid profile offline_access webid\",
     \"client_id\": \"$APP1_CLIENT_ID\",
     \"client_secret\": \"$APP1_CLIENT_SECRET\"
-  }")
-
-if echo "$APP1_RESPONSE" | grep -q "\"client_id\":\"$APP1_CLIENT_ID\""; then
-  echo "Successfully registered $APP1_NAME with fixed client ID: $APP1_CLIENT_ID"
-  
-  # Save client credentials to a file
-  echo "{\"client_id\":\"$APP1_CLIENT_ID\",\"client_secret\":\"$APP1_CLIENT_SECRET\"}" > ./.data/client-credentials/app1-credentials.json
-else
-  echo "Failed to register $APP1_NAME with fixed client ID"
-  echo "Response: $APP1_RESPONSE"
-fi
+  }" > ./.data/client-credentials/app1-credentials.json
 
 # Register the second application
 echo "Registering $APP2_NAME..."
-APP2_RESPONSE=$(curl -s -X POST \
-  "$SOLID_SERVER/.oidc/reg" \
+curl -X POST "$SOLID_SERVER/.oidc/reg" \
   -H "Content-Type: application/json" \
   -d "{
     \"application_type\": \"web\",
@@ -61,22 +49,11 @@ APP2_RESPONSE=$(curl -s -X POST \
     \"scope\": \"openid profile offline_access webid\",
     \"client_id\": \"$APP2_CLIENT_ID\",
     \"client_secret\": \"$APP2_CLIENT_SECRET\"
-  }")
-
-if echo "$APP2_RESPONSE" | grep -q "\"client_id\":\"$APP2_CLIENT_ID\""; then
-  echo "Successfully registered $APP2_NAME with fixed client ID: $APP2_CLIENT_ID"
-  
-  # Save client credentials to a file
-  echo "{\"client_id\":\"$APP2_CLIENT_ID\",\"client_secret\":\"$APP2_CLIENT_SECRET\"}" > ./.data/client-credentials/app2-credentials.json
-else
-  echo "Failed to register $APP2_NAME with fixed client ID"
-  echo "Response: $APP2_RESPONSE"
-fi
+  }" > ./.data/client-credentials/app2-credentials.json
 
 # Register welldata application
 echo "Registering $WELLDATA_NAME..."
-WELLDATA_RESPONSE=$(curl -s -X POST \
-  "$SOLID_SERVER/.oidc/reg" \
+curl -X POST "$SOLID_SERVER/.oidc/reg" \
   -H "Content-Type: application/json" \
   -d "{
     \"application_type\": \"web\",
@@ -85,17 +62,7 @@ WELLDATA_RESPONSE=$(curl -s -X POST \
     \"scope\": \"openid profile offline_access webid\",
     \"client_id\": \"$WELLDATA_CLIENT_ID\",
     \"client_secret\": \"$WELLDATA_CLIENT_SECRET\"
-  }")
-
-if echo "$WELLDATA_RESPONSE" | grep -q "\"client_id\":\"$WELLDATA_CLIENT_ID\""; then
-  echo "Successfully registered $WELLDATA_NAME with fixed client ID: $WELLDATA_CLIENT_ID"
-  
-  # Save client credentials to a file
-  echo "{\"client_id\":\"$WELLDATA_CLIENT_ID\",\"client_secret\":\"$WELLDATA_CLIENT_SECRET\"}" > ./.data/client-credentials/welldata-credentials.json
-else
-  echo "Failed to register $WELLDATA_NAME with fixed client ID"
-  echo "Response: $WELLDATA_RESPONSE"
-fi
+  }" > ./.data/client-credentials/welldata-credentials.json
 
 echo "Client registration complete."
 echo "You can now modify your applications to use these fixed client IDs."
