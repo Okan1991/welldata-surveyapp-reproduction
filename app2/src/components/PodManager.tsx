@@ -336,21 +336,21 @@ const PodManager = () => {
       const session = getDefaultSession();
       if (!session.info.webId) return;
 
-      // Extract the Pod name from the WebID
-      const webIdUrl = new URL(session.info.webId);
-      const podName = webIdUrl.pathname.split('/')[1];
-      
-      // Check for welldata container within the user's Pod
+      // Get the dataset for the pod root
       const podDataset = await getSolidDataset(podUrl, { fetch });
       const containedUrls = getContainedResourceUrlAll(podDataset);
-      const hasWelldata = containedUrls.some(url => url.includes(`/${podName}/welldata/`));
-      setHasWelldataContainer(hasWelldata);
       
-      if (hasWelldata) {
-        const welldataContainerUrl = containedUrls.find(url => url.includes(`/${podName}/welldata/`));
-        if (welldataContainerUrl) {
-          setWelldataUrl(welldataContainerUrl);
-        }
+      // Check if any of the URLs contain 'welldata/'
+      const welldataUrl = containedUrls.find(url => url.includes('/welldata/'));
+      
+      if (welldataUrl) {
+        console.log('Found welldata container:', welldataUrl);
+        setHasWelldataContainer(true);
+        setWelldataUrl(welldataUrl);
+      } else {
+        console.log('No welldata container found');
+        setHasWelldataContainer(false);
+        setWelldataUrl(null);
       }
     } catch (error) {
       console.error('Error checking welldata container:', error);
