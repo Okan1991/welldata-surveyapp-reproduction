@@ -1,65 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
-  VStack,
-  Heading,
-  Text,
-  useToast,
-  IconButton,
-  Tooltip,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverBody,
-  PopoverArrow,
-  PopoverCloseButton,
   Progress,
+  Text,
+  VStack,
+  useToast,
+  Card,
+  CardBody,
+  Heading,
+  Icon,
   HStack,
-  Icon
+  Badge,
 } from '@chakra-ui/react';
-import {
-  createContainerAt,
-  getSolidDataset,
-  FetchError
-} from '@inrupt/solid-client';
-import {
-  fetch,
-  getDefaultSession
-} from '@inrupt/solid-client-authn-browser';
+import { createContainerAt } from '@inrupt/solid-client';
+import { fetch, getDefaultSession } from '@inrupt/solid-client-authn-browser';
+import { createInitialFHIRPlan } from '../services/fhirService';
+import { createWelldataWebId } from '../services/webIdService';
 
 interface WelldataPodCreatorProps {
   onPodCreated: (podUrl: string) => void;
 }
 
-export const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated }) => {
+const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [podExists, setPodExists] = useState(false);
   const toast = useToast();
-
-  useEffect(() => {
-    checkPodExists();
-  }, []);
-
-  const checkPodExists = async () => {
-    try {
-      const session = getDefaultSession();
-      if (!session.info.isLoggedIn || !session.info.webId) {
-        return;
-      }
-
-      const webIdUrl = new URL(session.info.webId);
-      const baseUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
-      const welldataUrl = `${baseUrl}welldata/`;
-      
-      await getSolidDataset(welldataUrl, { fetch });
-      setPodExists(true);
-    } catch (error) {
-      // If we get a 404, the Pod doesn't exist yet
-      setPodExists(false);
-    }
-  };
 
   const createWelldataPod = async () => {
     setIsCreating(true);
@@ -71,26 +37,33 @@ export const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCre
         throw new Error('User must be logged in to create a Pod');
       }
 
-      // Extract base URL from WebID
+      // Extract the base URL from the WebID
       const webIdUrl = new URL(session.info.webId);
       const baseUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       
-      // Create main welldata container
+      // Create the main welldata container
       const welldataUrl = `${baseUrl}welldata/`;
       await createContainerAt(welldataUrl, { fetch });
-      setProgress(25);
+      setProgress(15);
 
-      // Create subfolders
-      const folders = ['metadata/', 'data/', 'logs/', 'config/'];
-      for (const [index, folder] of folders.entries()) {
-        await createContainerAt(`${welldataUrl}${folder}`, { fetch });
-        setProgress(25 + ((index + 1) * 25));
+      // Create required subfolders
+      const subfolders = ['config', 'data', 'logs', 'metadata'];
+      for (const folder of subfolders) {
+        await createContainerAt(`${welldataUrl}${folder}/`, { fetch });
+        setProgress(15 + (subfolders.indexOf(folder) + 1) * 15);
       }
 
-      setPodExists(true);
+      // Create welldata WebID and link it to the user
+      await createWelldataWebId(welldataUrl);
+      setProgress(75);
+
+      // Create initial FHIR plan
+      await createInitialFHIRPlan(welldataUrl);
+      setProgress(100);
+
       toast({
         title: 'Success',
-        description: 'Welldata Pod structure created successfully',
+        description: 'Welldata Pod created successfully with WebID and initial FHIR plan',
         status: 'success',
         duration: 5000,
         isClosable: true,
@@ -98,65 +71,101 @@ export const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCre
 
       onPodCreated(welldataUrl);
     } catch (error) {
+      console.error('Error creating welldata Pod:', error);
       toast({
         title: 'Error',
-        description: `Failed to create Welldata Pod: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: `Failed to create welldata Pod: ${error instanceof Error ? error.message : 'Unknown error'}`,
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
     } finally {
       setIsCreating(false);
+      setProgress(0);
     }
   };
 
-  if (podExists) {
-    return null;
-  }
-
   return (
-    <Box p={4} borderRadius="lg" borderWidth="1px" bg="white">
-      <VStack spacing={4} align="stretch">
-        <HStack justify="space-between" align="center">
-          <Heading size="md">Create Welldata Pod</Heading>
-          <Popover placement="right">
-            <PopoverTrigger>
-              <IconButton
-                aria-label="Learn more about Welldata Pod structure"
-                icon={<Icon viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></Icon>}
-                variant="ghost"
-                size="sm"
-              />
-            </PopoverTrigger>
-            <PopoverContent>
-              <PopoverArrow />
-              <PopoverCloseButton />
-              <PopoverBody>
-                <VStack align="start" spacing={2}>
-                  <Text fontWeight="bold">Pod Structure:</Text>
-                  <Text>• /welldata/</Text>
-                  <Text ml={4}>• data/ - For storing well data</Text>
-                  <Text ml={4}>• metadata/ - For schemas and metadata</Text>
-                  <Text ml={4}>• logs/ - For activity logs</Text>
-                  <Text ml={4}>• config/ - For configuration files</Text>
-                </VStack>
-              </PopoverBody>
-            </PopoverContent>
-          </Popover>
-        </HStack>
-        <Button
-          colorScheme="blue"
-          onClick={createWelldataPod}
-          isLoading={isCreating}
-          loadingText="Creating Pod..."
-        >
-          Create Welldata Pod
-        </Button>
-        {isCreating && (
+    <VStack spacing={4} align="stretch">
+      <Heading size="md">Create Welldata Pod</Heading>
+      <Text>
+        Create a new welldata Pod with the required structure and initial FHIR plan.
+      </Text>
+      
+      <Button
+        colorScheme="blue"
+        onClick={createWelldataPod}
+        isLoading={isCreating}
+        loadingText="Creating Pod..."
+      >
+        Create Welldata Pod
+      </Button>
+
+      {isCreating && (
+        <Box>
           <Progress value={progress} size="sm" colorScheme="blue" />
-        )}
-      </VStack>
-    </Box>
+          <Text mt={2} fontSize="sm" color="gray.500">
+            Creating Pod structure... {progress}%
+          </Text>
+        </Box>
+      )}
+
+      <Card variant="outline">
+        <CardBody>
+          <VStack align="start" spacing={2}>
+            <Text fontWeight="medium">Pod Structure:</Text>
+            <HStack>
+              <Icon viewBox="0 0 24 24" boxSize={5} color="brand.500">
+                <path
+                  fill="currentColor"
+                  d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                />
+              </Icon>
+              <Text>welldata/</Text>
+            </HStack>
+            <Box pl={8}>
+              <HStack>
+                <Icon viewBox="0 0 24 24" boxSize={5} color="brand.500">
+                  <path
+                    fill="currentColor"
+                    d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                  />
+                </Icon>
+                <Text>config/</Text>
+              </HStack>
+              <HStack>
+                <Icon viewBox="0 0 24 24" boxSize={5} color="brand.500">
+                  <path
+                    fill="currentColor"
+                    d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                  />
+                </Icon>
+                <Text>data/</Text>
+                <Badge colorScheme="green">FHIR Plans</Badge>
+              </HStack>
+              <HStack>
+                <Icon viewBox="0 0 24 24" boxSize={5} color="brand.500">
+                  <path
+                    fill="currentColor"
+                    d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                  />
+                </Icon>
+                <Text>logs/</Text>
+              </HStack>
+              <HStack>
+                <Icon viewBox="0 0 24 24" boxSize={5} color="brand.500">
+                  <path
+                    fill="currentColor"
+                    d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                  />
+                </Icon>
+                <Text>metadata/</Text>
+              </HStack>
+            </Box>
+          </VStack>
+        </CardBody>
+      </Card>
+    </VStack>
   );
 };
 
