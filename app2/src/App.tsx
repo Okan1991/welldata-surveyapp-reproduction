@@ -31,7 +31,7 @@ function App() {
               </Text>
             </Box>
             
-            <AuthManager onLoginStatusChange={setIsLoggedIn} />
+            <AuthManager onLogin={(webId) => setIsLoggedIn(true)} onLogout={() => setIsLoggedIn(false)} />
             
             <Divider my={6} />
             

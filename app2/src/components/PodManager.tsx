@@ -56,6 +56,7 @@ import WelldataPodCreator from './WelldataPodCreator';
 import { deleteContainerRecursively } from '../services/podService';
 import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
 import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
+import FhirPlanModal from './FhirPlanModal';
 
 // Define the ContainerItem type
 type ContainerItem = {
@@ -505,7 +506,14 @@ const PodManager = () => {
           </Flex>
         ) : containerItems.length > 0 ? (
           <List spacing={2}>
-            {containerItems.map((item) => renderItem(item))}
+            {containerItems.map((item) => (
+              <ListItem key={item.url}>
+                {renderItem(item)}
+                {item.name === 'initial-plan.ttl' && (
+                  <FhirPlanModal planUrl={item.url} />
+                )}
+              </ListItem>
+            ))}
           </List>
         ) : (
           <Box p={4} textAlign="center" bg="white" borderRadius="md">

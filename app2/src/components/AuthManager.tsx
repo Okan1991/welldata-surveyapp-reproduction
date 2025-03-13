@@ -80,7 +80,9 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
         if (session.info.isLoggedIn) {
           setIsLoggedIn(true);
           setWebId(session.info.webId || '');
-          onLogin(session.info.webId || '');
+          if (typeof onLogin === 'function') {
+            onLogin(session.info.webId || '');
+          }
         }
       } catch (error) {
         console.error('Error during session restoration:', error);
@@ -104,7 +106,7 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
     try {
       await login({
         oidcIssuer: issuer,
-        redirectUrl: clientCredentials.app2.redirect_uri,
+        redirectUrl: clientCredentialsDynamic.redirect_uris[0] || clientCredentials.app2.redirect_uri,
         clientId: clientId,
         clientSecret: clientSecret
       });
@@ -128,7 +130,9 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
       await session.logout();
       setIsLoggedIn(false);
       setWebId('');
-      onLogout();
+      if (typeof onLogout === 'function') {
+        onLogout();
+      }
       toast({
         title: 'Logged Out',
         description: 'You have been successfully logged out.',

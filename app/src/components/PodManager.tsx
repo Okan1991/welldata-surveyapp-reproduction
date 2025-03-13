@@ -12,6 +12,7 @@ import {
   getThing,
   deleteFile as deleteResource,
   getSourceUrl,
+  getFile
 } from '@inrupt/solid-client';
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
 import { DCTERMS } from '@inrupt/vocab-common-rdf';
@@ -29,6 +30,9 @@ export default function PodManager() {
   const [currentStep, setCurrentStep] = createSignal(1);
   const [editingFile, setEditingFile] = createSignal<{ url: string; title: string; description: string } | null>(null);
   const [rdfValidationError, setRdfValidationError] = createSignal('');
+  const [previewFileItem, setPreviewFileItem] = createSignal<{ url: string; title: string; description?: string } | null>(null);
+  const [previewContent, setPreviewContent] = createSignal('');
+  const [previewLoading, setPreviewLoading] = createSignal(false);
 
   const session = getDefaultSession();
 
@@ -283,6 +287,41 @@ export default function PodManager() {
     }
   };
 
+  const handleItemClick = (item: { url: string; title?: string; description?: string }) => {
+    if (item.url.endsWith('/')) {
+      // For directories, navigate to children
+      loadContainer(item.url);
+    } else {
+      // For files, open preview modal
+      previewFile(item);
+    }
+  };
+
+  const previewFile = async (file: { url: string; title?: string; description?: string }) => {
+    // Set preview item with fallback title
+    setPreviewFileItem({
+      url: file.url,
+      title: (file.title && file.title.trim().length > 0) ? file.title : getFileName(file.url),
+      description: file.description
+    });
+    setPreviewLoading(true);
+    try {
+      const response = await getFile(file.url, { fetch: session.fetch });
+      const text = await response.text();
+      setPreviewContent(text);
+    } catch (err) {
+      setPreviewContent('Error loading file content.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const loadContainer = async (url: string) => {
+    setSelectedContainer(url);
+    await listFiles();
+    setCurrentStep(2);
+  };
+
   return (
     <div class="pod-manager">
       <button 
@@ -329,199 +368,147 @@ export default function PodManager() {
       </Show>
 
       <Show 
-        when={currentStep() === 1}
+        when={currentStep() !== 1}
         fallback={
-          <div class="files-section">
-            <h3>File Management</h3>
-            <button onClick={listFiles}>Refresh Files List</button>
-            <Show when={files().length > 0}>
-              <ul>
-                <For each={files()}>
-                  {(file) => (
+          <div class="container-section">
+            <h3>Container Management</h3>
+            <div class="container-list">
+              <h4>Existing Containers:</h4>
+              <Show 
+                when={containers().length > 0}
+                fallback={<p>No containers found. Create one below.</p>}
+              >
+                <ul>
+                  <For each={containers()}>{(container) => (
                     <li>
-                      <div class="file-item">
-                        <Show
-                          when={editingFile()?.url === file.url}
-                          fallback={
-                            <>
-                              <div class="file-info">
-                                <strong>Title:</strong> {file.title || getFileName(file.url)}
-                                <Show when={file.description}>
-                                  <br /><strong>RDF Content:</strong> {file.description}
-                                </Show>
-                              </div>
-                              <div class="file-actions">
-                                <button 
-                                  onClick={() => startEditing(file)}
-                                  class="secondary"
-                                >
-                                  Edit
-                                </button>
-                                <button 
-                                  onClick={() => deleteFile(file.url)}
-                                  class="danger"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </>
-                          }
+                      <div
+                        class="container-item"
+                        onClick={() => loadContainer(container.url)}
+                        style="cursor: pointer; padding: 8px; margin-bottom:4px; display: flex; align-items: center; justify-content: space-between; background: #f5f5f5;"
+                      >
+                        <span>{container.name}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteContainer(container.url); }}
+                          class="danger"
                         >
-                          <div class="file-edit">
-                            <div class="input-group">
-                              <label>
-                                Title:
-                                <input
-                                  type="text"
-                                  value={editingFile()!.title}
-                                  onInput={(e) => setEditingFile({
-                                    ...editingFile()!,
-                                    title: e.currentTarget.value
-                                  })}
-                                />
-                              </label>
-                            </div>
-                            <div class="input-group">
-                              <label>
-                                RDF Content (Turtle format):
-                                <textarea
-                                  value={editingFile()!.description}
-                                  onInput={(e) => {
-                                    const newContent = e.currentTarget.value;
-                                    setEditingFile({
-                                      ...editingFile()!,
-                                      description: newContent
-                                    });
-                                    const validation = validateRdf(newContent);
-                                    setRdfValidationError(validation.error || '');
-                                  }}
-                                  placeholder="Enter valid RDF content in Turtle format"
-                                />
-                              </label>
-                              <Show when={rdfValidationError()}>
-                                <p class="validation-error">{rdfValidationError()}</p>
-                              </Show>
-                            </div>
-                            <div class="edit-actions">
-                              <button 
-                                onClick={saveFileChanges}
-                                disabled={!!rdfValidationError()}
-                              >
-                                Save
-                              </button>
-                              <button onClick={cancelEditing} class="secondary">Cancel</button>
-                            </div>
-                          </div>
-                        </Show>
+                          Delete
+                        </button>
                       </div>
                     </li>
-                  )}
-                </For>
-              </ul>
-            </Show>
-
-            <div class="create-file-section">
-              <h4>Create New File:</h4>
+                  )}</For>
+                </ul>
+              </Show>
+            </div>
+            <div class="create-container">
+              <h4>Create New Container:</h4>
               <div class="input-group">
                 <label>
-                  File Title:
+                  Container Name:
                   <input
                     type="text"
-                    value={newFileName()}
-                    onInput={(e) => setNewFileName(e.currentTarget.value)}
-                    placeholder="Enter file name"
+                    value={newContainerName()}
+                    onInput={(e) => setNewContainerName(e.currentTarget.value)}
+                    placeholder="Enter container name (e.g., my-files)"
                   />
                 </label>
               </div>
-              <div class="input-group">
-                <label>
-                  RDF Content (Turtle format):
-                  <textarea
-                    value={fileContent()}
-                    onInput={(e) => {
-                      const newContent = e.currentTarget.value;
-                      setFileContent(newContent);
-                      const validation = validateRdf(newContent);
-                      setRdfValidationError(validation.error || '');
-                    }}
-                    placeholder="Enter valid RDF content in Turtle format, e.g.:
+              <button onClick={async () => {
+                await createContainer();
+                setCurrentStep(2);
+              }}>Create Container</button>
+            </div>
+          </div>
+        }
+      >
+        <div class="files-section">
+          <div style="margin-bottom: 16px;">
+            <button onClick={() => { setCurrentStep(1); setSelectedContainer(''); }} style="margin-right: 16px;">Back to Containers</button>
+            <span><strong>Files in:</strong> {selectedContainer()}</span>
+            <button onClick={listFiles} style="margin-left: 16px;">Refresh Files List</button>
+          </div>
+          <h3>File Management</h3>
+          <Show when={files().length > 0}>
+            <ul>
+              <For each={files()}>{(file) => (
+                <li>
+                  <div
+                    onClick={() => handleItemClick(file)}
+                    style={file.url.endsWith('/')
+                      ? "cursor: pointer; padding: 8px; margin-bottom:4px; display: flex; align-items: center; justify-content: space-between; background: #f5f5f5;"
+                      : "cursor: pointer; padding: 8px; margin-bottom:4px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #ddd;"
+                    }
+                  >
+                    <div class="file-info">
+                      {file.url.endsWith('/')
+                        ? <span>{getContainerName(file.url)}</span>
+                        : <span>{(file.title && file.title.trim().length > 0) ? file.title : getFileName(file.url)}</span>
+                      }
+                    </div>
+                    <Show when={!file.url.endsWith('/')}>{
+                      <div class="file-actions">
+                        <button onClick={(e) => { e.stopPropagation(); startEditing(file); }} style="margin-right: 8px;">Edit</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteFile(file.url); }}>Delete</button>
+                      </div>
+                    }</Show>
+                  </div>
+                </li>
+              )}</For>
+            </ul>
+          </Show>
+          <div class="create-file-section">
+            <h4>Create New File:</h4>
+            <div class="input-group">
+              <label>
+                File Title:
+                <input
+                  type="text"
+                  value={newFileName()}
+                  onInput={(e) => setNewFileName(e.currentTarget.value)}
+                  placeholder="Enter file name"
+                />
+              </label>
+            </div>
+            <div class="input-group">
+              <label>
+                RDF Content (Turtle format):
+                <textarea
+                  value={fileContent()}
+                  onInput={(e) => {
+                    const newContent = e.currentTarget.value;
+                    setFileContent(newContent);
+                    const validation = validateRdf(newContent);
+                    setRdfValidationError(validation.error || '');
+                  }}
+                  placeholder="Enter valid RDF content in Turtle format, e.g.:
 @prefix dc: <http://purl.org/dc/elements/1.1/>.
 @prefix : <#>.
 :document
     dc:title 'Example';
     dc:description 'This is an example.'."
-                  />
-                </label>
-                <Show when={rdfValidationError()}>
-                  <p class="validation-error">{rdfValidationError()}</p>
-                </Show>
-              </div>
-              <button 
-                onClick={createFile}
-                disabled={!!rdfValidationError()}
-              >
-                Create File
-              </button>
-            </div>
-          </div>
-        }
-      >
-        <div class="container-section">
-          <h3>Container Management</h3>
-          <div class="container-list">
-            <h4>Existing Containers:</h4>
-            <Show 
-              when={containers().length > 0}
-              fallback={<p>No containers found. Create one below.</p>}
-            >
-              <ul>
-                <For each={containers()}>
-                  {(container) => (
-                    <li>
-                      <div class="container-item">
-                        <span>{container.name}</span>
-                        <div class="container-actions">
-                          <button 
-                            onClick={() => {
-                              setSelectedContainer(container.url);
-                              setCurrentStep(2);
-                              listFiles();
-                            }}
-                          >
-                            Select
-                          </button>
-                          <button 
-                            onClick={() => deleteContainer(container.url)}
-                            class="danger"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </Show>
-          </div>
-
-          <div class="create-container">
-            <h4>Create New Container:</h4>
-            <div class="input-group">
-              <label>
-                Container Name:
-                <input
-                  type="text"
-                  value={newContainerName()}
-                  onInput={(e) => setNewContainerName(e.currentTarget.value)}
-                  placeholder="Enter container name (e.g., my-files)"
                 />
               </label>
+              <Show when={rdfValidationError()}>
+                <p class="validation-error">{rdfValidationError()}</p>
+              </Show>
             </div>
-            <button onClick={async () => {
-              await createContainer();
-              setCurrentStep(2);
-            }}>Create Container</button>
+            <button 
+              onClick={createFile}
+              disabled={!!rdfValidationError()}
+            >
+              Create File
+            </button>
+          </div>
+        </div>
+      </Show>
+
+      <Show when={previewFileItem()}>
+        <div class="modal-overlay" onClick={() => setPreviewFileItem(null)} style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center;">
+          <div class="modal-content" onClick={(e) => e.stopPropagation()} style="background:white; padding:16px; border-radius:8px; min-width:300px; max-width:80%; max-height:80%; overflow:auto;">
+            <button onClick={() => setPreviewFileItem(null)} style="float:right;">Close</button>
+            <h3>{previewFileItem()?.title}</h3>
+            <Show when={previewLoading()} fallback={<pre>{previewContent()}</pre>}>
+               <p>Loading preview...</p>
+            </Show>
           </div>
         </div>
       </Show>

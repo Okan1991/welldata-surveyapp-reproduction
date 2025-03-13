@@ -93,30 +93,15 @@ export async function createInitialFHIRPlan(podUrl: string): Promise<void> {
       .addStringNoLocale(FHIR_NAMESPACE('status'), 'active')
       .addDate(FHIR_NAMESPACE('created'), new Date())
       .addDate(FHIR_NAMESPACE('modified'), new Date())
-      .addStringNoLocale(RDF_PREDICATES.AUTHOR, 'WellData App')
-      .addStringNoLocale(RDF_PREDICATES.GOAL, 'Stay healthy through WellData apps and share data responsibly to enable better health policy and research')
-      .addStringNoLocale(RDF_PREDICATES.TARGET, `${RDF_PREDICATES.SNOMED_CODE}713404003`)
-      .addStringNoLocale(RDF_PREDICATES.FREQUENCY, 'weekly')
+      .addStringNoLocale(FHIR_NAMESPACE('author'), 'WellData App')
+      .addStringNoLocale(FHIR_NAMESPACE('goal'), 'Stay healthy through WellData apps and share data responsibly to enable better health policy and research')
+      .addStringNoLocale(FHIR_NAMESPACE('target'), 'http://snomed.info/sct/713404003')
+      .addStringNoLocale(FHIR_NAMESPACE('frequency'), 'weekly')
       // Add actions
-      .addStringNoLocale(RDF_PREDICATES.ACTION, JSON.stringify([
+      .addStringNoLocale(FHIR_NAMESPACE('action'), JSON.stringify([
         {
-          title: 'Explore Zipster',
-          description: 'Engage with Zipster app features',
-          frequency: 'weekly'
-        },
-        {
-          title: 'Explore Bibopp',
-          description: 'Engage with Bibopp app features',
-          frequency: 'weekly'
-        },
-        {
-          title: 'Explore Selfcare',
-          description: 'Engage with Selfcare app features',
-          frequency: 'weekly'
-        },
-        {
-          title: 'Set Health Goal',
-          description: 'Set or update health goals in WellData',
+          title: 'Initial Action',
+          description: 'This is the initial action',
           frequency: 'monthly'
         }
       ]))
@@ -165,8 +150,14 @@ export async function getFHIRPlan(planUrl: string): Promise<FHIRPlan | null> {
       title: getStringNoLocale(planThing, FHIR_NAMESPACE('title')) || '',
       description: getStringNoLocale(planThing, FHIR_NAMESPACE('description')) || '',
       status: getStringNoLocale(planThing, FHIR_NAMESPACE('status')) as FHIRPlan['status'] || 'draft',
-      created: getDate(planThing, FHIR_NAMESPACE('created')) || new Date(),
-      modified: getDate(planThing, FHIR_NAMESPACE('modified')) || new Date(),
+      created: (() => {
+        const createdString = getStringNoLocale(planThing, FHIR_NAMESPACE('created'));
+        return createdString ? new Date(createdString) : new Date();
+      })(),
+      modified: (() => {
+        const modifiedString = getStringNoLocale(planThing, FHIR_NAMESPACE('modified'));
+        return modifiedString ? new Date(modifiedString) : new Date();
+      })(),
       author: getStringNoLocale(planThing, FHIR_NAMESPACE('author')) || '',
       goal: getStringNoLocale(planThing, FHIR_NAMESPACE('goal')) || '',
       target: {
