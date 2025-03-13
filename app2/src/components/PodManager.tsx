@@ -24,6 +24,18 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+  InputGroup,
+  InputRightElement,
 } from '@chakra-ui/react';
 import {
   getSolidDataset,
@@ -32,7 +44,9 @@ import {
   createContainerAt,
   deleteContainer,
   deleteFile,
-  FetchError
+  FetchError,
+  getFile,
+  getFileWithAcl,
 } from '@inrupt/solid-client';
 import { 
   fetch,
@@ -40,10 +54,14 @@ import {
 } from '@inrupt/solid-client-authn-browser';
 import WelldataPodCreator from './WelldataPodCreator';
 import { deleteContainerRecursively } from '../services/podService';
-import { RepeatIcon } from '@chakra-ui/icons';
+import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
+import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
 
 // Define the ContainerItem type
-type ContainerItem = string;
+type ContainerItem = {
+  url: string;
+  name: string;
+};
 
 // Simple icons using inline SVG
 const FolderIcon = () => (
@@ -64,15 +82,6 @@ const FileIcon = () => (
   </Icon>
 );
 
-const DeleteIcon = () => (
-  <Icon viewBox="0 0 24 24" boxSize={4} color="red.500">
-    <path
-      fill="currentColor"
-      d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-    />
-  </Icon>
-);
-
 const PodManager = () => {
   const [currentUrl, setCurrentUrl] = useState<string>('');
   const [containerItems, setContainerItems] = useState<ContainerItem[]>([]);
@@ -86,6 +95,10 @@ const PodManager = () => {
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [hasWelldataContainer, setHasWelldataContainer] = useState<boolean>(false);
+  const [welldataUrl, setWelldataUrl] = useState<string | null>(null);
+  const [isCopyingUrl, setIsCopyingUrl] = useState(false);
+  const { isOpen: isUrlModalOpen, onOpen: onUrlModalOpen, onClose } = useDisclosure();
   
   const toast = useToast();
 
@@ -97,6 +110,7 @@ const PodManager = () => {
       const podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       setCurrentUrl(podUrl);
       loadContainer(podUrl);
+      checkWelldataContainer(podUrl);
     }
   }, []);
 
@@ -107,7 +121,7 @@ const PodManager = () => {
     try {
       const dataset = await getSolidDataset(url, { fetch });
       const containedUrls = getContainedResourceUrlAll(dataset);
-      setContainerItems(containedUrls);
+      setContainerItems(containedUrls.map(url => ({ url, name: url.split('/').filter(Boolean).pop() || '' })));
       setCurrentUrl(url);
       
       // Update breadcrumbs
@@ -287,14 +301,157 @@ const PodManager = () => {
     return () => clearInterval(refreshInterval);
   }, [currentUrl]);
 
+  const handleDownloadFHIRJSON = async (url: string) => {
+    try {
+      const plan = await getFHIRPlan(url);
+      if (plan) {
+        const filename = `${plan.id || 'plan'}.json`;
+        downloadFHIRJSON(plan, filename);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Could not retrieve plan data',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading FHIR JSON:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to download FHIR JSON: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const checkWelldataContainer = async (podUrl: string) => {
+    try {
+      const session = getDefaultSession();
+      if (!session.info.webId) return;
+
+      // Extract the Pod name from the WebID
+      const webIdUrl = new URL(session.info.webId);
+      const podName = webIdUrl.pathname.split('/')[1];
+      
+      // Check for welldata container within the user's Pod
+      const podDataset = await getSolidDataset(podUrl, { fetch });
+      const containedUrls = getContainedResourceUrlAll(podDataset);
+      const hasWelldata = containedUrls.some(url => url.includes(`/${podName}/welldata/`));
+      setHasWelldataContainer(hasWelldata);
+      
+      if (hasWelldata) {
+        const welldataContainerUrl = containedUrls.find(url => url.includes(`/${podName}/welldata/`));
+        if (welldataContainerUrl) {
+          setWelldataUrl(welldataContainerUrl);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking welldata container:', error);
+      setHasWelldataContainer(false);
+      setWelldataUrl(null);
+    }
+  };
+
+  const handleCopyUrl = async () => {
+    if (!welldataUrl) return;
+    
+    setIsCopyingUrl(true);
+    try {
+      await navigator.clipboard.writeText(welldataUrl);
+      toast({
+        title: 'Copied',
+        description: 'Container URL copied to clipboard',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error copying URL:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to copy URL',
+        status: 'error',
+        duration: 2000,
+        isClosable: true,
+      });
+    } finally {
+      setIsCopyingUrl(false);
+    }
+  };
+
+  const renderItem = (item: ContainerItem) => {
+    const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
+    const isContainer = item.url.endsWith('/');
+    const iswelldataContainer = item.url.includes('/welldata/') && item.url.endsWith('/');
+    
+    return (
+      <HStack key={item.url} justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
+        <HStack flex={1} cursor="pointer" onClick={() => handleItemClick(item.url)}>
+          {isContainer ? <FolderIcon /> : <FileIcon />}
+          <Text>{item.name}</Text>
+          {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
+          {iswelldataContainer && (
+            <IconButton
+              aria-label="View Container URL"
+              icon={<InfoIcon />}
+              size="sm"
+              variant="ghost"
+              colorScheme="blue"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUrlModalOpen();
+              }}
+            />
+          )}
+        </HStack>
+        <HStack>
+          {isPlan && (
+            <IconButton
+              aria-label="Download FHIR JSON"
+              icon={<DownloadIcon />}
+              size="sm"
+              colorScheme="blue"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownloadFHIRJSON(item.url);
+              }}
+            />
+          )}
+          <IconButton
+            aria-label="Delete"
+            icon={<DeleteIcon />}
+            size="sm"
+            colorScheme="red"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteClick(item.url, false);
+            }}
+          />
+        </HStack>
+      </HStack>
+    );
+  };
+
   return (
     <Box>
-      {/* Welldata Pod Creator */}
-      <Card mb={6}>
-        <CardBody>
-          <WelldataPodCreator onPodCreated={(podUrl) => loadContainer(podUrl)} />
-        </CardBody>
-      </Card>
+      {/* Welldata Container Creator - Only show if welldata container doesn't exist */}
+      {!hasWelldataContainer && (
+        <Card mb={6}>
+          <CardBody>
+            <WelldataPodCreator onPodCreated={(containerUrl) => {
+              loadContainer(containerUrl);
+              setHasWelldataContainer(true);
+              setWelldataUrl(containerUrl);
+            }} />
+          </CardBody>
+        </Card>
+      )}
 
       {/* Breadcrumb navigation */}
       <Flex wrap="wrap" mb={4} alignItems="center">
@@ -348,48 +505,7 @@ const PodManager = () => {
           </Flex>
         ) : containerItems.length > 0 ? (
           <List spacing={2}>
-            {containerItems.map((url) => (
-              <ListItem key={url} p={2} bg="white" borderRadius="md" boxShadow="sm">
-                <Flex justify="space-between" align="center">
-                  <HStack spacing={3} flex="1" onClick={() => handleItemClick(url)} cursor="pointer">
-                    {url.endsWith('/') ? <FolderIcon /> : <FileIcon />}
-                    <VStack align="start" spacing={0}>
-                      <Text fontWeight="medium">
-                        {url.split('/').filter(Boolean).pop()}
-                        {url.endsWith('/') && (
-                          <Badge ml={2} colorScheme="purple" fontSize="xs">
-                            Container
-                          </Badge>
-                        )}
-                      </Text>
-                      <Text fontSize="xs" color="gray.500">
-                        {url}
-                      </Text>
-                    </VStack>
-                  </HStack>
-                  <IconButton
-                    aria-label="Delete resource"
-                    icon={<DeleteIcon />}
-                    size="sm"
-                    variant="ghost"
-                    colorScheme="red"
-                    onClick={async () => {
-                      if (url.endsWith('/')) {
-                        try {
-                          const dataset = await getSolidDataset(url, { fetch });
-                          const contents = getContainedResourceUrlAll(dataset);
-                          handleDeleteClick(url, contents.length > 0);
-                        } catch (error) {
-                          handleDeleteClick(url, false);
-                        }
-                      } else {
-                        handleDeleteClick(url, false);
-                      }
-                    }}
-                  />
-                </Flex>
-              </ListItem>
-            ))}
+            {containerItems.map((item) => renderItem(item))}
           </List>
         ) : (
           <Box p={4} textAlign="center" bg="white" borderRadius="md">
@@ -447,6 +563,42 @@ const PodManager = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Container URL Modal */}
+      <Modal isOpen={isUrlModalOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Welldata Container URL</ModalHeader>
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Text>This is the URL of your Welldata container:</Text>
+              <InputGroup>
+                <Input
+                  value={welldataUrl || ''}
+                  readOnly
+                  pr="4.5rem"
+                />
+                <InputRightElement width="4.5rem">
+                  <Button
+                    h="1.75rem"
+                    size="sm"
+                    onClick={handleCopyUrl}
+                    isLoading={isCopyingUrl}
+                    loadingText="Copying..."
+                  >
+                    {isCopyingUrl ? <CheckIcon /> : <CopyIcon />}
+                  </Button>
+                </InputRightElement>
+              </InputGroup>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={onClose}>
+              Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <VStack spacing={4} align="stretch" mt={4}>
         <HStack justify="space-between">
