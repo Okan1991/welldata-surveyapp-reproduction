@@ -15,7 +15,15 @@ import {
   Icon,
   Flex,
   Badge,
-  IconButton
+  IconButton,
+  Card,
+  CardBody,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from '@chakra-ui/react';
 import {
   getSolidDataset,
@@ -30,6 +38,12 @@ import {
   fetch,
   getDefaultSession
 } from '@inrupt/solid-client-authn-browser';
+import WelldataPodCreator from './WelldataPodCreator';
+import { deleteContainerRecursively } from '../services/podService';
+import { RepeatIcon } from '@chakra-ui/icons';
+
+// Define the ContainerItem type
+type ContainerItem = string;
 
 // Simple icons using inline SVG
 const FolderIcon = () => (
@@ -61,11 +75,17 @@ const DeleteIcon = () => (
 
 const PodManager = () => {
   const [currentUrl, setCurrentUrl] = useState<string>('');
-  const [containerItems, setContainerItems] = useState<string[]>([]);
+  const [containerItems, setContainerItems] = useState<ContainerItem[]>([]);
   const [newContainerName, setNewContainerName] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [resourceToDelete, setResourceToDelete] = useState<string | null>(null);
+  const [isRecursiveDelete, setIsRecursiveDelete] = useState(false);
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   
   const toast = useToast();
 
@@ -73,7 +93,6 @@ const PodManager = () => {
     const session = getDefaultSession();
     if (session.info.isLoggedIn && session.info.webId) {
       // Extract the pod URL from the WebID
-      // This is a simplification - in a real app, you'd use the user's storage from their profile
       const webIdUrl = new URL(session.info.webId);
       const podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       setCurrentUrl(podUrl);
@@ -96,7 +115,7 @@ const PodManager = () => {
       const path = baseUrl.pathname;
       const segments = path.split('/').filter(Boolean);
       
-      const newBreadcrumbs = [];
+      const newBreadcrumbs: string[] = [];
       let currentPath = `${baseUrl.protocol}//${baseUrl.hostname}${baseUrl.port ? ':' + baseUrl.port : ''}/`;
       newBreadcrumbs.push(currentPath);
       
@@ -173,13 +192,28 @@ const PodManager = () => {
     }
   };
 
+  const handleDeleteClick = async (url: string, hasContents: boolean) => {
+    setResourceToDelete(url);
+    setIsRecursiveDelete(hasContents);
+    setIsDeleteDialogOpen(true);
+  };
+
   const deleteResource = async (url: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
       if (url.endsWith('/')) {
-        await deleteContainer(url, { fetch });
+        const dataset = await getSolidDataset(url, { fetch });
+        const contents = getContainedResourceUrlAll(dataset);
+        
+        if (contents.length > 0 && isRecursiveDelete) {
+          await deleteContainerRecursively(url);
+        } else if (contents.length === 0) {
+          await deleteContainer(url, { fetch });
+        } else {
+          throw new Error('Cannot delete non-empty container without confirmation');
+        }
       } else {
         await deleteFile(url, { fetch });
       }
@@ -205,6 +239,9 @@ const PodManager = () => {
       });
     } finally {
       setIsLoading(false);
+      setIsDeleteDialogOpen(false);
+      setResourceToDelete(null);
+      setIsRecursiveDelete(false);
     }
   };
 
@@ -212,8 +249,53 @@ const PodManager = () => {
     loadContainer(url);
   };
 
+  const refreshContainer = async () => {
+    if (!currentUrl) return;
+    setIsRefreshing(true);
+    try {
+      await loadContainer(currentUrl);
+      setLastRefreshTime(new Date());
+      toast({
+        title: 'Container Refreshed',
+        description: 'Contents have been updated.',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error refreshing container:', error);
+      toast({
+        title: 'Refresh Failed',
+        description: 'Could not refresh container contents.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Add useEffect to periodically refresh
+  useEffect(() => {
+    if (!currentUrl) return;
+    
+    const refreshInterval = setInterval(() => {
+      refreshContainer();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [currentUrl]);
+
   return (
     <Box>
+      {/* Welldata Pod Creator */}
+      <Card mb={6}>
+        <CardBody>
+          <WelldataPodCreator onPodCreated={(podUrl) => loadContainer(podUrl)} />
+        </CardBody>
+      </Card>
+
       {/* Breadcrumb navigation */}
       <Flex wrap="wrap" mb={4} alignItems="center">
         {breadcrumbs.map((url, index) => (
@@ -291,7 +373,19 @@ const PodManager = () => {
                     size="sm"
                     variant="ghost"
                     colorScheme="red"
-                    onClick={() => deleteResource(url)}
+                    onClick={async () => {
+                      if (url.endsWith('/')) {
+                        try {
+                          const dataset = await getSolidDataset(url, { fetch });
+                          const contents = getContainedResourceUrlAll(dataset);
+                          handleDeleteClick(url, contents.length > 0);
+                        } catch (error) {
+                          handleDeleteClick(url, false);
+                        }
+                      } else {
+                        handleDeleteClick(url, false);
+                      }
+                    }}
                   />
                 </Flex>
               </ListItem>
@@ -303,6 +397,81 @@ const PodManager = () => {
           </Box>
         )}
       </Box>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isDeleteDialogOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setResourceToDelete(null);
+          setIsRecursiveDelete(false);
+        }}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Delete Resource
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              {isRecursiveDelete ? (
+                <>
+                  <Text mb={4}>
+                    This container is not empty. Deleting it will also delete all its contents.
+                  </Text>
+                  <Text fontWeight="bold">Are you sure you want to delete this container and all its contents?</Text>
+                </>
+              ) : (
+                <Text>Are you sure you want to delete this resource?</Text>
+              )}
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setResourceToDelete(null);
+                setIsRecursiveDelete(false);
+              }}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={() => resourceToDelete && deleteResource(resourceToDelete)}
+                ml={3}
+                isLoading={isLoading}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      <VStack spacing={4} align="stretch" mt={4}>
+        <HStack justify="space-between">
+          <Heading size="md">Pod Manager</Heading>
+          <HStack>
+            {currentUrl && (
+              <Button
+                leftIcon={<RepeatIcon />}
+                onClick={refreshContainer}
+                isLoading={isRefreshing}
+                size="sm"
+                colorScheme="blue"
+                variant="outline"
+              >
+                Refresh
+              </Button>
+            )}
+            {lastRefreshTime && (
+              <Text fontSize="sm" color="gray.500">
+                Last updated: {lastRefreshTime.toLocaleTimeString()}
+              </Text>
+            )}
+          </HStack>
+        </HStack>
+      </VStack>
     </Box>
   );
 };
