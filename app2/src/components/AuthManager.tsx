@@ -34,13 +34,17 @@ import {
   Session
 } from '@inrupt/solid-client-authn-browser';
 import clientCredentials from '../../../shared/client-credentials.json';
+// Use dynamic credentials for app2
 import clientCredentialsDynamic from '../../../.data/client-credentials/app2-credentials.json';
 
 
-//const clientId = clientCredentials.app2.client_id;
+// Use dynamic credentials for app2 - these are the ones registered with the server
 const clientId = clientCredentialsDynamic.client_id;
-//const clientSecret = clientCredentials.app2.client_secret;
 const clientSecret = clientCredentialsDynamic.client_secret;
+
+// For debugging
+console.log('Using client ID:', clientId);
+console.log('Using redirect URI:', clientCredentialsDynamic.redirect_uris[0]);
 
 
 /**
@@ -104,9 +108,10 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
   const handleLogin = async () => {
     setLoading(true);
     try {
+      // Use the exact redirect URI from the dynamic credentials
       await login({
         oidcIssuer: issuer,
-        redirectUrl: clientCredentialsDynamic.redirect_uris[0] || clientCredentials.app2.redirect_uri,
+        redirectUrl: clientCredentialsDynamic.redirect_uris[0],
         clientId: clientId,
         clientSecret: clientSecret
       });

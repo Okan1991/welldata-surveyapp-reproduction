@@ -114,9 +114,17 @@ const PodManager = () => {
       const podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       setCurrentUrl(podUrl);
       loadContainer(podUrl);
+      // Check for welldata container in the current container
       checkWelldataContainer(podUrl);
     }
   }, []);
+
+  // Add a useEffect to check for welldata container when the current URL changes
+  useEffect(() => {
+    if (currentUrl) {
+      checkWelldataContainer(currentUrl);
+    }
+  }, [currentUrl]);
 
   const loadContainer = async (url: string) => {
     setIsLoading(true);
@@ -336,19 +344,19 @@ const PodManager = () => {
       const session = getDefaultSession();
       if (!session.info.webId) return;
 
-      // Get the dataset for the pod root
+      // Get the dataset for the current container
       const podDataset = await getSolidDataset(podUrl, { fetch });
       const containedUrls = getContainedResourceUrlAll(podDataset);
       
-      // Check if any of the URLs contain 'welldata/'
-      const welldataUrl = containedUrls.find(url => url.includes('/welldata/'));
+      // Check if the current container has a welldata container
+      const welldataUrl = containedUrls.find(url => url.includes('/welldata/') && url.startsWith(podUrl));
       
       if (welldataUrl) {
         console.log('Found welldata container:', welldataUrl);
         setHasWelldataContainer(true);
         setWelldataUrl(welldataUrl);
       } else {
-        console.log('No welldata container found');
+        console.log('No welldata container found in current container');
         setHasWelldataContainer(false);
         setWelldataUrl(null);
       }
@@ -414,7 +422,10 @@ const PodManager = () => {
   const renderItem = (item: ContainerItem) => {
     const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
     const isContainer = item.url.endsWith('/');
-    const isWelldataContainer = item.url.includes('/welldata/') && item.url.endsWith('/');
+    // Only identify the welldata container itself, not containers within it
+    const isWelldataContainer = item.url.includes('/welldata/') && 
+                               item.url.endsWith('/') && 
+                               item.name === 'welldata';
     
     return (
       <HStack key={item.url} justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
