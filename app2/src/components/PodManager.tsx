@@ -386,15 +386,35 @@ const PodManager = () => {
     }
   };
 
-  const previewFile = (file) => {
-    setPreviewFileData(file);
+  const previewFile = async (file) => {
+    setPreviewFileData({...file, content: "Loading content..."});
     setIsPreviewModalOpen(true);
+    
+    try {
+      // For FHIR plan files, use the same approach as FhirPlanModal
+      if (file.url.endsWith('.ttl') && file.url.includes('/plans/')) {
+        const plan = await getFHIRPlan(file.url);
+        if (plan) {
+          setPreviewFileData({...file, content: JSON.stringify(plan, null, 2), isPlan: true});
+        } else {
+          setPreviewFileData({...file, content: "Could not load FHIR plan data", isPlan: true});
+        }
+      } else {
+        // For other files, fetch and display raw content
+        const response = await getFile(file.url, { fetch });
+        const text = await response.text();
+        setPreviewFileData({...file, content: text});
+      }
+    } catch (error) {
+      console.error('Error loading file content:', error);
+      setPreviewFileData({...file, content: `Error loading file content: ${error.message || 'Unknown error'}`});
+    }
   };
 
   const renderItem = (item: ContainerItem) => {
     const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
     const isContainer = item.url.endsWith('/');
-    const iswelldataContainer = item.url.includes('/welldata/') && item.url.endsWith('/');
+    const isWelldataContainer = item.url.includes('/welldata/') && item.url.endsWith('/');
     
     return (
       <HStack key={item.url} justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
@@ -402,7 +422,7 @@ const PodManager = () => {
           {isContainer ? <FolderIcon /> : <FileIcon />}
           <Text>{item.name}</Text>
           {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
-          {iswelldataContainer && (
+          {isWelldataContainer && (
             <IconButton
               aria-label="View Container URL"
               icon={<InfoIcon />}
@@ -516,9 +536,6 @@ const PodManager = () => {
             {containerItems.map((item) => (
               <ListItem key={item.url}>
                 {renderItem(item)}
-                {item.name === 'initial-plan.ttl' && (
-                  <FhirPlanModal planUrl={item.url} />
-                )}
               </ListItem>
             ))}
           </List>
@@ -640,13 +657,30 @@ const PodManager = () => {
         </HStack>
       </VStack>
 
-      <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)}>
+      <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)} size="xl">
         <ModalOverlay />
-        <ModalContent maxW='md'>
-          <ModalHeader>{previewFileData ? previewFileData.name : 'File Preview'}</ModalHeader>
+        <ModalContent maxW="800px">
+          <ModalHeader>
+            {previewFileData?.isPlan ? 'FHIR Plan: ' : 'File: '}
+            {previewFileData?.name}
+          </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Text>{previewFileData ? `Preview content for ${previewFileData.name}` : ''}</Text>
+            {previewFileData?.content ? (
+              <Box 
+                as="pre" 
+                p={3} 
+                bg="gray.50" 
+                borderRadius="md" 
+                fontSize="sm" 
+                overflowX="auto"
+                whiteSpace="pre-wrap"
+              >
+                {previewFileData.content}
+              </Box>
+            ) : (
+              <Spinner />
+            )}
           </ModalBody>
           <ModalFooter>
             <Button onClick={() => setIsPreviewModalOpen(false)}>Close</Button>
