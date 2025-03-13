@@ -36,6 +36,7 @@ import {
   useDisclosure,
   InputGroup,
   InputRightElement,
+  ModalCloseButton
 } from '@chakra-ui/react';
 import {
   getSolidDataset,
@@ -100,6 +101,8 @@ const PodManager = () => {
   const [welldataUrl, setWelldataUrl] = useState<string | null>(null);
   const [isCopyingUrl, setIsCopyingUrl] = useState(false);
   const { isOpen: isUrlModalOpen, onOpen: onUrlModalOpen, onClose } = useDisclosure();
+  const [previewFileData, setPreviewFileData] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   
   const toast = useToast();
 
@@ -155,12 +158,11 @@ const PodManager = () => {
     }
   };
 
-  const handleItemClick = (url: string) => {
-    if (url.endsWith('/')) {
-      loadContainer(url);
+  const handleItemClick = (file) => {
+    if (file.url.endsWith('/')) {
+      loadContainer(file.url);
     } else {
-      // For files, we could implement a preview or download feature
-      window.open(url, '_blank');
+      previewFile(file);
     }
   };
 
@@ -384,6 +386,11 @@ const PodManager = () => {
     }
   };
 
+  const previewFile = (file) => {
+    setPreviewFileData(file);
+    setIsPreviewModalOpen(true);
+  };
+
   const renderItem = (item: ContainerItem) => {
     const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
     const isContainer = item.url.endsWith('/');
@@ -391,7 +398,7 @@ const PodManager = () => {
     
     return (
       <HStack key={item.url} justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
-        <HStack flex={1} cursor="pointer" onClick={() => handleItemClick(item.url)}>
+        <HStack flex={1} cursor="pointer" onClick={() => handleItemClick(item)}>
           {isContainer ? <FolderIcon /> : <FileIcon />}
           <Text>{item.name}</Text>
           {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
@@ -632,6 +639,20 @@ const PodManager = () => {
           </HStack>
         </HStack>
       </VStack>
+
+      <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)}>
+        <ModalOverlay />
+        <ModalContent maxW='md'>
+          <ModalHeader>{previewFileData ? previewFileData.name : 'File Preview'}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text>{previewFileData ? `Preview content for ${previewFileData.name}` : ''}</Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={() => setIsPreviewModalOpen(false)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };
