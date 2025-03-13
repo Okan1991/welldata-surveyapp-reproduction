@@ -82,7 +82,7 @@ When the Solid server restarts, client registrations are typically lost, which c
 
 ### 1. Persistent Client IDs with Scripts
 
-The `/scripts` directory contains utilities to register client applications with the Solid server and update the applications to use fixed client IDs:
+The `/scripts` directory contains utilities to register client applications with the Solid server with fixed client IDs:
 
 ```bash
 # One-step setup (starts servers and registers clients)
@@ -92,19 +92,18 @@ The `/scripts` directory contains utilities to register client applications with
 # 1. Start the Solid server
 npm run start:server
 
-# 2. Register client applications
-./scripts/register-clients.sh
+# 2. Register client applications with fixed IDs
+./scripts/register-fixed-clients.sh
 
-# 3. Update application components
-./scripts/update-app-clients.sh
-
-# 4. Apply the changes
-cp app/src/components/AuthManager.fixed.tsx app/src/components/AuthManager.tsx
-cp app2/src/components/AuthManager.fixed.tsx app2/src/components/AuthManager.tsx
-
-# 5. Start the applications
+# 3. Start the applications
 cd app && npm run dev
 cd app2 && npm run dev
+```
+
+Alternatively, you can use the all-in-one script to start all servers with proper configuration:
+
+```bash
+./scripts/start-all-servers.sh
 ```
 
 See the [scripts README](./scripts/README.md) for more details.
@@ -174,6 +173,16 @@ The project uses:
 - Inrupt Solid Client libraries for SOLID interactions
 - TypeScript for type safety
 - Vite for development and building
+
+## Known Issues and Troubleshooting
+
+This project has a few known issues:
+
+1. **File Updates in Welldata Container**: There's a known issue with updating files in the welldata container, particularly the initial-plan.ttl file, which may result in 412 Precondition Failed errors.
+
+2. **Client Credentials Issues**: The SOLID server sometimes reverts to using old client credentials, causing "accountID mismatch" errors during login attempts.
+
+For detailed information about these issues and their workarounds, please refer to the [Troubleshooting Guide](./TROUBLESHOOTING.md).
 
 ## License
 
