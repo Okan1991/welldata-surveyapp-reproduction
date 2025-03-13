@@ -330,13 +330,21 @@ const PodManager = () => {
 
   const checkWelldataContainer = async (podUrl: string) => {
     try {
-      const dataset = await getSolidDataset(podUrl, { fetch });
-      const containedUrls = getContainedResourceUrlAll(dataset);
-      const hasWelldata = containedUrls.some(url => url.includes('/welldata/'));
+      const session = getDefaultSession();
+      if (!session.info.webId) return;
+
+      // Extract the Pod name from the WebID
+      const webIdUrl = new URL(session.info.webId);
+      const podName = webIdUrl.pathname.split('/')[1];
+      
+      // Check for welldata container within the user's Pod
+      const podDataset = await getSolidDataset(podUrl, { fetch });
+      const containedUrls = getContainedResourceUrlAll(podDataset);
+      const hasWelldata = containedUrls.some(url => url.includes(`/${podName}/welldata/`));
       setHasWelldataContainer(hasWelldata);
       
       if (hasWelldata) {
-        const welldataContainerUrl = containedUrls.find(url => url.includes('/welldata/'));
+        const welldataContainerUrl = containedUrls.find(url => url.includes(`/${podName}/welldata/`));
         if (welldataContainerUrl) {
           setWelldataUrl(welldataContainerUrl);
         }

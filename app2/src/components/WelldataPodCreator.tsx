@@ -40,8 +40,11 @@ const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated })
       const webIdUrl = new URL(session.info.webId);
       const baseUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       
+      // Extract the Pod name from the WebID path
+      const podName = webIdUrl.pathname.split('/')[1];
+      
       // Create the main welldata container within the user's Pod
-      const welldataUrl = `${baseUrl}welldata/`;
+      const welldataUrl = `${baseUrl}${podName}/welldata/`;
       await createContainerAt(welldataUrl, { fetch });
       setProgress(20);
 
