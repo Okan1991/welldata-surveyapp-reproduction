@@ -16,7 +16,6 @@ import {
 import { createContainerAt } from '@inrupt/solid-client';
 import { fetch, getDefaultSession } from '@inrupt/solid-client-authn-browser';
 import { createInitialFHIRPlan } from '../services/fhirService';
-import { createWelldataWebId } from '../services/webIdService';
 
 interface WelldataPodCreatorProps {
   onPodCreated: (podUrl: string) => void;
@@ -41,21 +40,17 @@ const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated })
       const webIdUrl = new URL(session.info.webId);
       const baseUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       
-      // Create the main welldata container
+      // Create the main welldata container within the user's Pod
       const welldataUrl = `${baseUrl}welldata/`;
       await createContainerAt(welldataUrl, { fetch });
-      setProgress(15);
+      setProgress(20);
 
       // Create required subfolders
       const subfolders = ['config', 'data', 'logs', 'metadata'];
       for (const folder of subfolders) {
         await createContainerAt(`${welldataUrl}${folder}/`, { fetch });
-        setProgress(15 + (subfolders.indexOf(folder) + 1) * 15);
+        setProgress(20 + (subfolders.indexOf(folder) + 1) * 20);
       }
-
-      // Create welldata WebID and link it to the user
-      await createWelldataWebId(welldataUrl);
-      setProgress(75);
 
       // Create initial FHIR plan
       await createInitialFHIRPlan(welldataUrl);
@@ -63,7 +58,7 @@ const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated })
 
       toast({
         title: 'Success',
-        description: 'Welldata Pod created successfully with WebID and initial FHIR plan',
+        description: 'Welldata container created successfully with initial FHIR plan',
         status: 'success',
         duration: 5000,
         isClosable: true,
@@ -71,10 +66,10 @@ const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated })
 
       onPodCreated(welldataUrl);
     } catch (error) {
-      console.error('Error creating welldata Pod:', error);
+      console.error('Error creating welldata container:', error);
       toast({
         title: 'Error',
-        description: `Failed to create welldata Pod: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: `Failed to create welldata container: ${error instanceof Error ? error.message : 'Unknown error'}`,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -87,25 +82,25 @@ const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated })
 
   return (
     <VStack spacing={4} align="stretch">
-      <Heading size="md">Create Welldata Pod</Heading>
+      <Heading size="md">Create Welldata Container</Heading>
       <Text>
-        Create a new welldata Pod with the required structure and initial FHIR plan.
+        Create a new welldata container in your Pod with the required structure and initial FHIR plan.
       </Text>
       
       <Button
         colorScheme="blue"
         onClick={createWelldataPod}
         isLoading={isCreating}
-        loadingText="Creating Pod..."
+        loadingText="Creating Container..."
       >
-        Create Welldata Pod
+        Create Welldata Container
       </Button>
 
       {isCreating && (
         <Box>
           <Progress value={progress} size="sm" colorScheme="blue" />
           <Text mt={2} fontSize="sm" color="gray.500">
-            Creating Pod structure... {progress}%
+            Creating container structure... {progress}%
           </Text>
         </Box>
       )}
@@ -113,7 +108,7 @@ const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated })
       <Card variant="outline">
         <CardBody>
           <VStack align="start" spacing={2}>
-            <Text fontWeight="medium">Pod Structure:</Text>
+            <Text fontWeight="medium">Container Structure:</Text>
             <HStack>
               <Icon viewBox="0 0 24 24" boxSize={5} color="brand.500">
                 <path

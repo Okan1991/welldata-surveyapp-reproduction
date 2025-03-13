@@ -34,6 +34,8 @@ import {
   ModalBody,
   ModalFooter,
   useDisclosure,
+  InputGroup,
+  InputRightElement,
 } from '@chakra-ui/react';
 import {
   getSolidDataset,
@@ -52,7 +54,7 @@ import {
 } from '@inrupt/solid-client-authn-browser';
 import WelldataPodCreator from './WelldataPodCreator';
 import { deleteContainerRecursively } from '../services/podService';
-import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon } from '@chakra-ui/icons';
+import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
 import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
 
 // Define the ContainerItem type
@@ -93,7 +95,10 @@ const PodManager = () => {
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  const [hasWelldataPod, setHasWelldataPod] = useState<boolean>(false);
+  const [hasWelldataContainer, setHasWelldataContainer] = useState<boolean>(false);
+  const [welldataUrl, setWelldataUrl] = useState<string | null>(null);
+  const [isCopyingUrl, setIsCopyingUrl] = useState(false);
+  const { isOpen: isUrlModalOpen, onOpen: onUrlModalOpen, onClose } = useDisclosure();
   
   const toast = useToast();
 
@@ -105,7 +110,7 @@ const PodManager = () => {
       const podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       setCurrentUrl(podUrl);
       loadContainer(podUrl);
-      checkWelldataPod(podUrl);
+      checkWelldataContainer(podUrl);
     }
   }, []);
 
@@ -323,20 +328,57 @@ const PodManager = () => {
     }
   };
 
-  const checkWelldataPod = async (podUrl: string) => {
+  const checkWelldataContainer = async (podUrl: string) => {
     try {
       const dataset = await getSolidDataset(podUrl, { fetch });
       const containedUrls = getContainedResourceUrlAll(dataset);
-      setHasWelldataPod(containedUrls.some(url => url.includes('/welldata/')));
+      const hasWelldata = containedUrls.some(url => url.includes('/welldata/'));
+      setHasWelldataContainer(hasWelldata);
+      
+      if (hasWelldata) {
+        const welldataContainerUrl = containedUrls.find(url => url.includes('/welldata/'));
+        if (welldataContainerUrl) {
+          setWelldataUrl(welldataContainerUrl);
+        }
+      }
     } catch (error) {
-      console.error('Error checking welldata pod:', error);
-      setHasWelldataPod(false);
+      console.error('Error checking welldata container:', error);
+      setHasWelldataContainer(false);
+      setWelldataUrl(null);
+    }
+  };
+
+  const handleCopyUrl = async () => {
+    if (!welldataUrl) return;
+    
+    setIsCopyingUrl(true);
+    try {
+      await navigator.clipboard.writeText(welldataUrl);
+      toast({
+        title: 'Copied',
+        description: 'Container URL copied to clipboard',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error copying URL:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to copy URL',
+        status: 'error',
+        duration: 2000,
+        isClosable: true,
+      });
+    } finally {
+      setIsCopyingUrl(false);
     }
   };
 
   const renderItem = (item: ContainerItem) => {
     const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
     const isContainer = item.url.endsWith('/');
+    const iswelldataContainer = item.url.includes('/welldata/') && item.url.endsWith('/');
     
     return (
       <HStack key={item.url} justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
@@ -344,6 +386,19 @@ const PodManager = () => {
           {isContainer ? <FolderIcon /> : <FileIcon />}
           <Text>{item.name}</Text>
           {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
+          {iswelldataContainer && (
+            <IconButton
+              aria-label="View Container URL"
+              icon={<InfoIcon />}
+              size="sm"
+              variant="ghost"
+              colorScheme="blue"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUrlModalOpen();
+              }}
+            />
+          )}
         </HStack>
         <HStack>
           {isPlan && (
@@ -377,13 +432,14 @@ const PodManager = () => {
 
   return (
     <Box>
-      {/* Welldata Pod Creator - Only show if welldata pod doesn't exist */}
-      {!hasWelldataPod && (
+      {/* Welldata Container Creator - Only show if welldata container doesn't exist */}
+      {!hasWelldataContainer && (
         <Card mb={6}>
           <CardBody>
-            <WelldataPodCreator onPodCreated={(podUrl) => {
-              loadContainer(podUrl);
-              setHasWelldataPod(true);
+            <WelldataPodCreator onPodCreated={(containerUrl) => {
+              loadContainer(containerUrl);
+              setHasWelldataContainer(true);
+              setWelldataUrl(containerUrl);
             }} />
           </CardBody>
         </Card>
@@ -499,6 +555,42 @@ const PodManager = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Container URL Modal */}
+      <Modal isOpen={isUrlModalOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Welldata Container URL</ModalHeader>
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Text>This is the URL of your Welldata container:</Text>
+              <InputGroup>
+                <Input
+                  value={welldataUrl || ''}
+                  readOnly
+                  pr="4.5rem"
+                />
+                <InputRightElement width="4.5rem">
+                  <Button
+                    h="1.75rem"
+                    size="sm"
+                    onClick={handleCopyUrl}
+                    isLoading={isCopyingUrl}
+                    loadingText="Copying..."
+                  >
+                    {isCopyingUrl ? <CheckIcon /> : <CopyIcon />}
+                  </Button>
+                </InputRightElement>
+              </InputGroup>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={onClose}>
+              Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <VStack spacing={4} align="stretch" mt={4}>
         <HStack justify="space-between">
