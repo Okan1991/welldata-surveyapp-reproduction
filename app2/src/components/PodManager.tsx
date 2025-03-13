@@ -36,6 +36,7 @@ import {
   useDisclosure,
   InputGroup,
   InputRightElement,
+  ModalCloseButton
 } from '@chakra-ui/react';
 import {
   getSolidDataset,
@@ -56,6 +57,7 @@ import WelldataPodCreator from './WelldataPodCreator';
 import { deleteContainerRecursively } from '../services/podService';
 import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
 import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
+import FhirPlanModal from './FhirPlanModal';
 
 // Define the ContainerItem type
 type ContainerItem = {
@@ -99,6 +101,8 @@ const PodManager = () => {
   const [welldataUrl, setWelldataUrl] = useState<string | null>(null);
   const [isCopyingUrl, setIsCopyingUrl] = useState(false);
   const { isOpen: isUrlModalOpen, onOpen: onUrlModalOpen, onClose } = useDisclosure();
+  const [previewFileData, setPreviewFileData] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   
   const toast = useToast();
 
@@ -110,9 +114,17 @@ const PodManager = () => {
       const podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
       setCurrentUrl(podUrl);
       loadContainer(podUrl);
+      // Check for welldata container in the current container
       checkWelldataContainer(podUrl);
     }
   }, []);
+
+  // Add a useEffect to check for welldata container when the current URL changes
+  useEffect(() => {
+    if (currentUrl) {
+      checkWelldataContainer(currentUrl);
+    }
+  }, [currentUrl]);
 
   const loadContainer = async (url: string) => {
     setIsLoading(true);
@@ -154,12 +166,11 @@ const PodManager = () => {
     }
   };
 
-  const handleItemClick = (url: string) => {
-    if (url.endsWith('/')) {
-      loadContainer(url);
+  const handleItemClick = (file) => {
+    if (file.url.endsWith('/')) {
+      loadContainer(file.url);
     } else {
-      // For files, we could implement a preview or download feature
-      window.open(url, '_blank');
+      previewFile(file);
     }
   };
 
@@ -333,21 +344,21 @@ const PodManager = () => {
       const session = getDefaultSession();
       if (!session.info.webId) return;
 
-      // Extract the Pod name from the WebID
-      const webIdUrl = new URL(session.info.webId);
-      const podName = webIdUrl.pathname.split('/')[1];
-      
-      // Check for welldata container within the user's Pod
+      // Get the dataset for the current container
       const podDataset = await getSolidDataset(podUrl, { fetch });
       const containedUrls = getContainedResourceUrlAll(podDataset);
-      const hasWelldata = containedUrls.some(url => url.includes(`/${podName}/welldata/`));
-      setHasWelldataContainer(hasWelldata);
       
-      if (hasWelldata) {
-        const welldataContainerUrl = containedUrls.find(url => url.includes(`/${podName}/welldata/`));
-        if (welldataContainerUrl) {
-          setWelldataUrl(welldataContainerUrl);
-        }
+      // Check if the current container has a welldata container
+      const welldataUrl = containedUrls.find(url => url.includes('/welldata/') && url.startsWith(podUrl));
+      
+      if (welldataUrl) {
+        console.log('Found welldata container:', welldataUrl);
+        setHasWelldataContainer(true);
+        setWelldataUrl(welldataUrl);
+      } else {
+        console.log('No welldata container found in current container');
+        setHasWelldataContainer(false);
+        setWelldataUrl(null);
       }
     } catch (error) {
       console.error('Error checking welldata container:', error);
@@ -383,18 +394,46 @@ const PodManager = () => {
     }
   };
 
+  const previewFile = async (file) => {
+    setPreviewFileData({...file, content: "Loading content..."});
+    setIsPreviewModalOpen(true);
+    
+    try {
+      // For FHIR plan files, use the same approach as FhirPlanModal
+      if (file.url.endsWith('.ttl') && file.url.includes('/plans/')) {
+        const plan = await getFHIRPlan(file.url);
+        if (plan) {
+          setPreviewFileData({...file, content: JSON.stringify(plan, null, 2), isPlan: true});
+        } else {
+          setPreviewFileData({...file, content: "Could not load FHIR plan data", isPlan: true});
+        }
+      } else {
+        // For other files, fetch and display raw content
+        const response = await getFile(file.url, { fetch });
+        const text = await response.text();
+        setPreviewFileData({...file, content: text});
+      }
+    } catch (error) {
+      console.error('Error loading file content:', error);
+      setPreviewFileData({...file, content: `Error loading file content: ${error.message || 'Unknown error'}`});
+    }
+  };
+
   const renderItem = (item: ContainerItem) => {
     const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
     const isContainer = item.url.endsWith('/');
-    const iswelldataContainer = item.url.includes('/welldata/') && item.url.endsWith('/');
+    // Only identify the welldata container itself, not containers within it
+    const isWelldataContainer = item.url.includes('/welldata/') && 
+                               item.url.endsWith('/') && 
+                               item.name === 'welldata';
     
     return (
       <HStack key={item.url} justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
-        <HStack flex={1} cursor="pointer" onClick={() => handleItemClick(item.url)}>
+        <HStack flex={1} cursor="pointer" onClick={() => handleItemClick(item)}>
           {isContainer ? <FolderIcon /> : <FileIcon />}
           <Text>{item.name}</Text>
           {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
-          {iswelldataContainer && (
+          {isWelldataContainer && (
             <IconButton
               aria-label="View Container URL"
               icon={<InfoIcon />}
@@ -505,7 +544,11 @@ const PodManager = () => {
           </Flex>
         ) : containerItems.length > 0 ? (
           <List spacing={2}>
-            {containerItems.map((item) => renderItem(item))}
+            {containerItems.map((item) => (
+              <ListItem key={item.url}>
+                {renderItem(item)}
+              </ListItem>
+            ))}
           </List>
         ) : (
           <Box p={4} textAlign="center" bg="white" borderRadius="md">
@@ -624,6 +667,37 @@ const PodManager = () => {
           </HStack>
         </HStack>
       </VStack>
+
+      <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)} size="xl">
+        <ModalOverlay />
+        <ModalContent maxW="800px">
+          <ModalHeader>
+            {previewFileData?.isPlan ? 'FHIR Plan: ' : 'File: '}
+            {previewFileData?.name}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {previewFileData?.content ? (
+              <Box 
+                as="pre" 
+                p={3} 
+                bg="gray.50" 
+                borderRadius="md" 
+                fontSize="sm" 
+                overflowX="auto"
+                whiteSpace="pre-wrap"
+              >
+                {previewFileData.content}
+              </Box>
+            ) : (
+              <Spinner />
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={() => setIsPreviewModalOpen(false)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

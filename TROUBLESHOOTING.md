@@ -2,6 +2,36 @@
 
 This guide addresses common issues you might encounter when working with the SOLID Local File Manager application.
 
+## Known Issues
+
+### 412 Precondition Failed Error When Updating Files
+
+**Issue**: When trying to update files in the welldata container, particularly the initial-plan.ttl file, you may encounter a 412 Precondition Failed error.
+
+**Cause**: This is a known bug related to how the Solid server handles ETags and access control for certain files, especially in the welldata container.
+
+**Workaround**:
+1. You can still view and create files in the welldata container.
+2. If you need to modify the content, consider creating a new file with the updated content and then deleting the old one.
+3. For developers: The issue appears to be related to the RDF structure of the file and how it's saved. The application attempts several fallback methods, but some files remain problematic.
+
+### SOLID Server Using Old Client Credentials
+
+**Issue**: The SOLID server sometimes reverts to using old client credentials, causing "accountID mismatch" errors during login attempts.
+
+**Cause**: This appears to be related to a timeout or cache issue with the SOLID server's client registration system.
+
+**Solutions**:
+1. **Manual URL Fix**: Take the client_id from the `.data/client-credentials/app2-credentials.json` file and manually append it to the failing OIDC URL behind the login button.
+   - Example: If the URL is `http://localhost:3000/.oidc/auth?...&client_id=OLD_ID...`, replace `OLD_ID` with the current client_id from the credentials file.
+
+2. **Re-register Clients**: Run the register-fixed-clients.sh script again to refresh all client registrations:
+   ```bash
+   bash scripts/register-fixed-clients.sh
+   ```
+
+3. **Clear Browser Storage**: Use the "Clear Auth Data" button in the application's authentication panel to clear any cached credentials.
+
 ## Community Solid Server Issues
 
 ### Server Won't Start

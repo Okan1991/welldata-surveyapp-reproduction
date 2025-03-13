@@ -3,10 +3,8 @@
 # Master script to set up the Solid environment with persistent client IDs
 # This script will:
 # 1. Start the Solid server
-# 2. Register client applications
-# 3. Update application components to use fixed client IDs
-# 4. Apply the changes
-# 5. Start the applications
+# 2. Register client applications with fixed client IDs
+# 3. Start the applications
 
 # Create necessary directories
 mkdir -p ./.data/client-credentials ./.data/accounts ./.data/pods
@@ -29,9 +27,9 @@ SOLID_SERVER_PID=$!
 echo "Waiting for the server to start..."
 sleep 5
 
-# Step 2: Register client applications
-echo -e "${GREEN}Step 2: Registering client applications...${NC}"
-./scripts/register-clients.sh
+# Step 2: Register client applications with fixed client IDs
+echo -e "${GREEN}Step 2: Registering client applications with fixed client IDs...${NC}"
+./scripts/register-fixed-clients.sh
 
 # Check if registration was successful
 if [ ! -f ./.data/client-credentials/app1-credentials.json ] || [ ! -f ./.data/client-credentials/app2-credentials.json ]; then
@@ -41,19 +39,8 @@ if [ ! -f ./.data/client-credentials/app1-credentials.json ] || [ ! -f ./.data/c
   exit 1
 fi
 
-# Step 3: Update application components
-echo -e "${GREEN}Step 3: Updating application components...${NC}"
-./scripts/update-app-clients.sh
-
-# Step 4: Apply the changes
-echo -e "${GREEN}Step 4: Applying changes to applications...${NC}"
-cp app/src/components/AuthManager.fixed.tsx app/src/components/AuthManager.tsx
-cp app2/src/components/AuthManager.fixed.tsx app2/src/components/AuthManager.tsx
-
-echo "Changes applied successfully."
-
-# Step 5: Start the applications
-echo -e "${GREEN}Step 5: Starting applications...${NC}"
+# Step 3: Start the applications
+echo -e "${GREEN}Step 3: Starting applications...${NC}"
 echo "Starting app1 in the background..."
 (cd app && npm run dev) &
 APP1_PID=$!

@@ -4,58 +4,57 @@ This directory contains scripts to help manage client registrations for Solid ap
 
 ## Available Scripts
 
-### 1. `register-clients.sh`
+### 1. `register-fixed-clients.sh`
 
-This script registers your client applications with the Solid server and saves the client credentials to files in the `.data/client-credentials/` directory.
+This script registers your client applications with the Solid server using predefined client IDs and saves the client credentials to files in the `.data/client-credentials/` directory.
 
 **Usage:**
 ```bash
-./scripts/register-clients.sh
+./scripts/register-fixed-clients.sh
 ```
 
 **What it does:**
-- Registers both applications with the Solid server
+- Registers all applications with the Solid server using fixed client IDs
 - Saves the client credentials (client ID and client secret) to JSON files
-- Outputs the client IDs and secrets for reference
+- Creates a shared client credentials file at `./shared/client-credentials.json`
+- Ensures client IDs remain consistent across server restarts
 
-### 2. `update-app-clients.sh`
+### 2. `start-all-servers.sh`
 
-This script creates modified versions of the AuthManager components for both applications, configured to use the fixed client IDs obtained from the registration process.
+This script starts all servers (Solid server and both web applications) with the correct configuration.
 
 **Usage:**
 ```bash
-./scripts/update-app-clients.sh
+./scripts/start-all-servers.sh
 ```
 
 **What it does:**
-- Reads the client IDs from the saved credential files
-- Creates modified versions of the AuthManager components with fixed client IDs
-- Outputs instructions for applying the changes
+- Stops any existing servers
+- Starts the Solid server
+- Registers clients with fixed IDs using `register-fixed-clients.sh`
+- Starts both web applications
+- Provides URLs for accessing all components
 
 ## Workflow for Persistent Client IDs
 
-1. Start the Solid server:
+1. Start all servers with a single command:
+   ```bash
+   ./scripts/start-all-servers.sh
+   ```
+
+   Or follow these steps individually:
+
+2. Start the Solid server:
    ```bash
    npm run start:server
    ```
 
-2. Register the client applications:
+3. Register the client applications with fixed IDs:
    ```bash
-   ./scripts/register-clients.sh
+   ./scripts/register-fixed-clients.sh
    ```
 
-3. Update the applications to use the fixed client IDs:
-   ```bash
-   ./scripts/update-app-clients.sh
-   ```
-
-4. Apply the changes to the applications:
-   ```bash
-   cp app/src/components/AuthManager.fixed.tsx app/src/components/AuthManager.tsx
-   cp app2/src/components/AuthManager.fixed.tsx app2/src/components/AuthManager.tsx
-   ```
-
-5. Start the applications:
+4. Start the applications:
    ```bash
    cd app && npm run dev
    cd app2 && npm run dev
@@ -65,10 +64,10 @@ This script creates modified versions of the AuthManager components for both app
 
 If you encounter authentication issues:
 
-1. Clear your browser's local storage for the application domains
+1. Clear your browser's local storage for the application domains using the "Clear Auth Data" button
 2. Restart the Solid server
-3. Run the registration script again
-4. Apply the updated components to the applications
+3. Run the registration script again: `./scripts/register-fixed-clients.sh`
+4. Restart the applications
 
 ## Manual Browser Storage Clearing
 
