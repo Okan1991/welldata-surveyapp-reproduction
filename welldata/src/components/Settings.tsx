@@ -25,11 +25,18 @@ import {
   useToast,
   HStack,
   Badge,
-  CardFooter
+  CardFooter,
+  Link,
+  Tooltip
 } from '@chakra-ui/react';
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
+import { ExternalLinkIcon, InfoIcon } from '@chakra-ui/icons';
 import ContainerManager from './ContainerManager';
 import AuthManager from './AuthManager';
+
+// Import package.json for version info
+// @ts-ignore
+import packageInfo from '../../package.json';
 
 // Logo path
 const interRegLogoPath = '/images/InterRegVLNL.png';
@@ -37,6 +44,7 @@ const interRegLogoPath = '/images/InterRegVLNL.png';
 const Settings: React.FC = () => {
   const [webId, setWebId] = useState<string>('');
   const [debugMode, setDebugMode] = useState<boolean>(false);
+  const [gitCommit, setGitCommit] = useState<string>('');
   const toast = useToast();
   const session = getDefaultSession();
   const bgColor = useColorModeValue('gray.50', 'gray.900');
@@ -53,7 +61,26 @@ const Settings: React.FC = () => {
     if (savedDebugMode) {
       setDebugMode(savedDebugMode === 'true');
     }
+    
+    // Try to fetch the Git commit hash
+    fetchGitCommitInfo();
   }, [session.info.isLoggedIn]);
+  
+  const fetchGitCommitInfo = async () => {
+    try {
+      // This file will be created during the build process or can be fetched from a server endpoint
+      const response = await fetch('/git-info.json');
+      if (response.ok) {
+        const data = await response.json();
+        setGitCommit(data.commit || '');
+      } else {
+        console.log('Could not fetch Git info');
+      }
+    } catch (error) {
+      console.error('Error fetching Git info:', error);
+      // Fallback to package version if Git info is not available
+    }
+  };
 
   const handleDebugModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.checked;
@@ -83,6 +110,15 @@ const Settings: React.FC = () => {
     });
   };
 
+  // Format the version display
+  const getVersionDisplay = () => {
+    const baseVersion = packageInfo.version;
+    if (gitCommit) {
+      return `${baseVersion} (${gitCommit.substring(0, 7)})`;
+    }
+    return baseVersion;
+  };
+
   return (
     <Box>
       <Container maxW="container.lg" py={6}>
@@ -95,6 +131,7 @@ const Settings: React.FC = () => {
             <Tab>Profile</Tab>
             <Tab>Container Management</Tab>
             <Tab>Authentication</Tab>
+            <Tab>Application Settings</Tab>
           </TabList>
           
           <TabPanels>
@@ -136,95 +173,97 @@ const Settings: React.FC = () => {
                 />
               </Box>
             </TabPanel>
+            
+            {/* Application Settings Tab */}
+            <TabPanel>
+              <VStack spacing={6} align="stretch">
+                <Card bg={cardBg} shadow="md">
+                  <CardHeader>
+                    <Heading size="md">Debug Options</Heading>
+                  </CardHeader>
+                  <CardBody>
+                    <VStack align="stretch" spacing={4}>
+                      <FormControl display="flex" alignItems="center">
+                        <FormLabel htmlFor="debug-mode" mb="0">
+                          Debug Mode
+                        </FormLabel>
+                        <Switch 
+                          id="debug-mode" 
+                          isChecked={debugMode} 
+                          onChange={handleDebugModeChange} 
+                        />
+                      </FormControl>
+                      
+                      <Text fontSize="sm" color="gray.500">
+                        When debug mode is enabled, detailed logs will be shown in the browser console.
+                        This can help troubleshoot issues with your Solid Pod.
+                      </Text>
+                    </VStack>
+                  </CardBody>
+                </Card>
+                
+                <Card bg={cardBg} shadow="md">
+                  <CardHeader>
+                    <Heading size="md">Data Management</Heading>
+                  </CardHeader>
+                  <CardBody>
+                    <VStack align="stretch" spacing={4}>
+                      <Text>
+                        Clear local storage to reset the application state. This will log you out.
+                      </Text>
+                      <Button colorScheme="red" onClick={clearLocalStorage}>
+                        Clear Local Storage
+                      </Button>
+                    </VStack>
+                  </CardBody>
+                </Card>
+                
+                <Card bg={cardBg} shadow="md">
+                  <CardHeader>
+                    <Heading size="md">About</Heading>
+                  </CardHeader>
+                  <CardBody>
+                    <VStack align="start" spacing={4} width="100%">
+                      <Text>
+                        WellData is an application for managing health data in Solid Pods.
+                      </Text>
+                      <HStack>
+                        <Tooltip label={gitCommit ? `Full commit: ${gitCommit}` : "Version from package.json"}>
+                          <Badge colorScheme="blue">Version {getVersionDisplay()}</Badge>
+                        </Tooltip>
+                        <Badge colorScheme="green">Solid Pod Compatible</Badge>
+                      </HStack>
+                      
+                      <Divider />
+                      
+                      <Box width="100%">
+                        <Link 
+                          href="https://github.com/pvgorp/solid-local-fresh" 
+                          isExternal 
+                          color="blue.500"
+                          fontWeight="medium"
+                        >
+                          GitHub Repository <ExternalLinkIcon mx="2px" />
+                        </Link>
+                      </Box>
+                      
+                      <Box width="100%" fontSize="sm" color="gray.600">
+                        <Text fontWeight="medium" mb={1}>License</Text>
+                        <Text>
+                          Copyright 2024 Pieter Van Gorp
+                        </Text>
+                        <Text>
+                          Licensed under the Apache License, Version 2.0
+                        </Text>
+                      </Box>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              </VStack>
+            </TabPanel>
           </TabPanels>
         </Tabs>
       </Container>
-      
-      {/* Footer with funding agency logo */}
-      <Box as="footer" bg="eu.blue" color="white" p={4} mt={8}>
-        <Container maxW="container.lg">
-          <Flex direction={{ base: 'column', md: 'row' }} align="center" justify="space-between">
-            <Text fontSize="sm">© {new Date().getFullYear()} WellData Project</Text>
-            
-            <Flex align="center" mt={{ base: 4, md: 0 }}>
-              
-              <Image 
-                src={interRegLogoPath} 
-                alt="InterReg Vlaanderen-Nederland Logo" 
-                height="50px"
-              />
-            </Flex>
-          </Flex>
-        </Container>
-      </Box>
-      
-      <Card>
-        <CardHeader>
-          <Heading size="md">Application Settings</Heading>
-        </CardHeader>
-        <CardBody>
-          <VStack align="stretch" spacing={4}>
-            <FormControl display="flex" alignItems="center">
-              <FormLabel htmlFor="debug-mode" mb="0">
-                Debug Mode
-              </FormLabel>
-              <Switch 
-                id="debug-mode" 
-                isChecked={debugMode} 
-                onChange={handleDebugModeChange} 
-              />
-            </FormControl>
-            
-            <Text fontSize="sm" color="gray.500">
-              When debug mode is enabled, detailed logs will be shown in the browser console.
-              This can help troubleshoot issues with your Solid Pod.
-            </Text>
-          </VStack>
-        </CardBody>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <Heading size="md">Data Management</Heading>
-        </CardHeader>
-        <CardBody>
-          <VStack align="stretch" spacing={4}>
-            <Text>
-              Clear local storage to reset the application state. This will log you out.
-            </Text>
-            <Button colorScheme="red" onClick={clearLocalStorage}>
-              Clear Local Storage
-            </Button>
-          </VStack>
-        </CardBody>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <Heading size="md">About</Heading>
-        </CardHeader>
-        <CardBody>
-          <VStack align="start" spacing={4}>
-            <Text>
-              WellData is an application for managing health data in Solid Pods.
-            </Text>
-            <HStack>
-              <Badge colorScheme="blue">Version 1.0.0</Badge>
-              <Badge colorScheme="green">Solid Pod Compatible</Badge>
-            </HStack>
-          </VStack>
-        </CardBody>
-        <CardFooter>
-          <Flex direction="column" align="center" width="100%">
-            <Text fontSize="sm" mb={2}>Funded by:</Text>
-            <Image 
-              src={interRegLogoPath} 
-              alt="InterReg Vlaanderen-Nederland Logo" 
-              height="50px"
-            />
-          </Flex>
-        </CardFooter>
-      </Card>
     </Box>
   );
 };
