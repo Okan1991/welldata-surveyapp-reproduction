@@ -4,7 +4,7 @@ This directory contains scripts to help manage client registrations for Solid ap
 
 ## Available Scripts
 
-### 1. `register-fixed-clients.sh`
+### `register-fixed-clients.sh`
 
 This script registers your client applications with the Solid server using predefined client IDs and saves the client credentials to files in the `.data/client-credentials/` directory.
 
@@ -19,55 +19,30 @@ This script registers your client applications with the Solid server using prede
 - Creates a shared client credentials file at `./shared/client-credentials.json`
 - Ensures client IDs remain consistent across server restarts
 
-### 2. `start-all-servers.sh`
-
-This script starts all servers (Solid server and both web applications) with the correct configuration.
-
-**Usage:**
-```bash
-./scripts/start-all-servers.sh
-```
-
-**What it does:**
-- Stops any existing servers
-- Starts the Solid server
-- Registers clients with fixed IDs using `register-fixed-clients.sh`
-- Starts both web applications
-- Provides URLs for accessing all components
-
 ## Workflow for Persistent Client IDs
 
-1. Start all servers with a single command:
-   ```bash
-   ./scripts/start-all-servers.sh
-   ```
+The client registration process is now integrated into the npm scripts:
 
-   Or follow these steps individually:
+```bash
+# Start everything with a single command (server, client registration, and apps)
+npm run dev
 
-2. Start the Solid server:
-   ```bash
-   npm run start:server
-   ```
+# Or for minimal setup (just server, client registration, and welldata app)
+npm run dev:minimal
+```
 
-3. Register the client applications with fixed IDs:
-   ```bash
-   ./scripts/register-fixed-clients.sh
-   ```
-
-4. Start the applications:
-   ```bash
-   cd app && npm run dev
-   cd app2 && npm run dev
-   ```
+These commands will:
+1. Start the Solid server
+2. Wait for the server to be ready
+3. Register client applications with fixed IDs
+4. Start the web applications
 
 ## Troubleshooting
 
 If you encounter authentication issues:
 
 1. Clear your browser's local storage for the application domains using the "Clear Auth Data" button
-2. Restart the Solid server
-3. Run the registration script again: `./scripts/register-fixed-clients.sh`
-4. Restart the applications
+2. Restart the development environment with `npm run dev` or `npm run dev:minimal`
 
 ## Manual Browser Storage Clearing
 

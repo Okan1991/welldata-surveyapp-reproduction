@@ -253,34 +253,19 @@ This demonstrates the interoperability of Solid applications and how users can c
 
 When the Solid server restarts, client registrations are typically lost, which can cause authentication errors. This project includes several solutions to address this issue:
 
-### 1. Persistent Client IDs with Scripts
+### 1. Persistent Client IDs with npm Scripts
 
-The `/scripts` directory contains utilities to register client applications with the Solid server with fixed client IDs:
-
-```bash
-# One-step setup (starts servers and registers clients)
-./scripts/setup-solid-env.sh
-
-# Or run the steps individually:
-# 1. Start the Solid server
-npm run start:server
-
-# 2. Register client applications with fixed IDs
-./scripts/register-fixed-clients.sh
-
-# 3. Start the applications
-cd app && npm run dev
-cd app2 && npm run dev
-cd welldata && npm run dev
-```
-
-Alternatively, you can use the all-in-one script to start all servers with proper configuration:
+The client registration process is now integrated into the development workflow:
 
 ```bash
-./scripts/start-all-servers.sh
+# Start everything with a single command (server, client registration, and apps)
+npm run dev
+
+# Or for minimal setup (just server, client registration, and welldata app)
+npm run dev:minimal
 ```
 
-See the [scripts README](./scripts/README.md) for more details.
+The client registration script (`scripts/register-fixed-clients.sh`) is automatically executed as part of these commands, ensuring that client applications are properly registered with the Solid server before they start.
 
 ### 2. Clear Auth Data Button
 
