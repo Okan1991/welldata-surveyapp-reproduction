@@ -41,3 +41,9 @@ node_modules
 # Data persistence
 .data/
 .data/**/*
+.internal/
+.internal/**/*
+P/
+P2/
+P3/
+P*/
