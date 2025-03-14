@@ -122,6 +122,7 @@ graph TD;
 ### Project Documentation
 - [README.md](README.md) - This file, containing setup and usage instructions
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Solutions for common issues
+- [docs/SERVER_PERSISTENCE.md](docs/SERVER_PERSISTENCE.md) - Information about server data persistence
 
 ### Application-Specific Documentation
 
