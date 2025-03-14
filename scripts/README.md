@@ -14,10 +14,12 @@ This script registers your client applications with the Solid server using prede
 ```
 
 **What it does:**
-- Registers all applications with the Solid server using fixed client IDs
-- Saves the client credentials (client ID and client secret) to JSON files
-- Creates a shared client credentials file at `./shared/client-credentials.json`
+- Reads application details from the shared client credentials file at `./shared/client-credentials.json`
+- Registers all applications with the Solid server using the client IDs defined in the shared file
+- Saves the registration responses to JSON files in the `.data/client-credentials/` directory
 - Ensures client IDs remain consistent across server restarts
+
+**Note:** The `./shared/client-credentials.json` file is an input to this script, not created by it. Developers can modify this file to change application names, redirect URIs, and client IDs before running the registration script.
 
 ## Workflow for Persistent Client IDs
 
