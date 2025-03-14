@@ -32,7 +32,7 @@ echo -e "${GREEN}Step 2: Registering client applications with fixed client IDs..
 ./scripts/register-fixed-clients.sh
 
 # Check if registration was successful
-if [ ! -f ./.data/client-credentials/app1-credentials.json ] || [ ! -f ./.data/client-credentials/app2-credentials.json ]; then
+if [ ! -f ./.data/client-credentials/app1-credentials.json ] || [ ! -f ./.data/client-credentials/app2-credentials.json ] || [ ! -f ./.data/client-credentials/welldata-credentials.json ]; then
   echo -e "${RED}Client registration failed. Please check the server logs.${NC}"
   echo "Stopping the Solid server..."
   kill $SOLID_SERVER_PID
@@ -49,6 +49,10 @@ echo "Starting app2 in the background..."
 (cd app2 && npm run dev) &
 APP2_PID=$!
 
+echo "Starting welldata in the background..."
+(cd welldata && npm run dev) &
+WELLDATA_PID=$!
+
 # Wait for the applications to start
 sleep 5
 
@@ -56,6 +60,7 @@ echo -e "${GREEN}Setup complete!${NC}"
 echo "Solid server is running at http://localhost:3000"
 echo "App1 is running at http://localhost:5173"
 echo "App2 is running at http://localhost:5174"
+echo "WellData is running at http://localhost:5175"
 echo ""
 echo -e "${YELLOW}Important:${NC}"
 echo "1. If you encounter authentication issues, use the 'Clear Auth Data' button in the applications"

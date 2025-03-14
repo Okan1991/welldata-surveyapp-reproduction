@@ -34,12 +34,17 @@ echo "Starting App2..."
 (cd app2 && npm run dev) &
 APP2_PID=$!
 
+echo "Starting WellData..."
+(cd welldata && npm run dev) &
+WELLDATA_PID=$!
+
 echo "All servers started successfully!"
 echo "Solid server: http://localhost:3000"
 echo "App1: http://localhost:5173"
 echo "App2: http://localhost:5174"
+echo "WellData: http://localhost:5175"
 echo ""
 echo "Press Ctrl+C to stop all servers"
 
 # Wait for Ctrl+C
-wait $SOLID_PID $APP1_PID $APP2_PID 
+wait $SOLID_PID $APP1_PID $APP2_PID $WELLDATA_PID 
