@@ -53,7 +53,6 @@ import {
   fetch,
   getDefaultSession
 } from '@inrupt/solid-client-authn-browser';
-import WelldataPodCreator from './WelldataPodCreator';
 import { deleteContainerRecursively } from '../services/podService';
 import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
 import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
@@ -526,19 +525,6 @@ const PodManager = () => {
 
   return (
     <Box>
-      {/* Welldata Container Creator - Only show if welldata container doesn't exist */}
-      {!hasWelldataContainer && (
-        <Card mb={6}>
-          <CardBody>
-            <WelldataPodCreator onPodCreated={(containerUrl) => {
-              loadContainer(containerUrl);
-              setHasWelldataContainer(true);
-              setWelldataUrl(containerUrl);
-            }} />
-          </CardBody>
-        </Card>
-      )}
-
       {/* Breadcrumb navigation */}
       <Flex wrap="wrap" mb={4} alignItems="center">
         {breadcrumbs.map((url, index) => (
