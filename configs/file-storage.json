@@ -1,0 +1,27 @@
+{
+  "@context": "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^7.0.0/components/context.jsonld",
+  "import": [
+    "css:config/storage/key-value/resource-store.json",
+    "css:config/util/resource-locker/file.json"
+  ],
+  "@graph": [
+    {
+      "comment": "Use file-based storage for client credentials",
+      "@id": "urn:solid-server:default:ClientCredentialsStore",
+      "@type": "FileSystemClientCredentialsStore"
+    },
+    {
+      "comment": "Use file-based storage for OIDC provider",
+      "@id": "urn:solid-server:default:IdentityProviderFactory",
+      "@type": "BearerOidcIdentityProviderFactory",
+      "storage": {
+        "@type": "FileSystemOidcStorage"
+      }
+    },
+    {
+      "comment": "Use file-based storage for sessions",
+      "@id": "urn:solid-server:default:SessionStorage",
+      "@type": "FileSystemSessionStorage"
+    }
+  ]
+} 

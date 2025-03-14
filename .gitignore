@@ -37,3 +37,13 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db 
 node_modules
+
+# Data persistence
+.data/
+.data/**/*
+.internal/
+.internal/**/*
+P/
+P2/
+P3/
+P*/
