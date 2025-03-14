@@ -2,6 +2,18 @@
 
 This document provides a detailed technical explanation of the key implementation aspects of the WellData application, focusing on WebID extraction, container creation, and the Solid integration.
 
+## Introduction
+
+WellData is designed to enable citizens to manage their own preventive health data in a SOLID Pod, while also enabling secondary use of such data for policy makers and researchers. This technical documentation focuses on the foundational implementation that will support future features such as leaderboards, personal health goals management, and integration with existing health applications.
+
+The application leverages the Solid (Social Linked Data) platform to provide a decentralized data storage model where users maintain control over their personal health data. This approach aligns with European values regarding health data privacy and citizen control, while still enabling data sharing for secondary use with proper consent.
+
+The technical implementation described in this document focuses on:
+1. Creating a standardized welldata container structure in the user's SOLID Pod
+2. Implementing FHIR-based data structures for storing health plans and goals
+3. Ensuring proper WebID extraction and Pod management
+4. Providing a foundation for future integration with other health applications
+
 ## Table of Contents
 
 1. [WebID Extraction Logic](#webid-extraction-logic)

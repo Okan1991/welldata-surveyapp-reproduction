@@ -1,6 +1,45 @@
-# SOLID Local File Manager
+# WellData App Prototype based on a Community SOLID Server
 
-A web application for managing files in a local SOLID pod with OpenID Connect support. Built with SolidJS and Community Solid Server.
+# WellData App and Ecosystem
+
+The aim is to have one app called **WellData**, but since it is complex, there are also other apps that demonstrate partial steps towards that WellData app. 
+
+## Purpose of WellData
+
+The **WellData** app aims to enable citizens to manage their own preventive health data in a **SOLID Pod**, while also enabling **secondary use** of such data. Secondary use is foreseen for **policy makers** as well as **researchers**. 
+
+> **Note:** The secondary use features are still on the roadmap at the time of writing.
+
+## Future Functionalities
+
+In the near future, the WellData app will be augmented with the following functionalities:
+
+### Anonymous Landing Page
+- The **anonymous landing page** should provide **two leaderboards**:
+  1. **Leaderboard 1**: Designed to **promote user onboarding**, encouraging individuals to gain control over their data and receive better support for maintaining a healthy lifestyle socially. Initially, this leaderboard will contain **mock data**.
+  2. **Leaderboard 2**: Designed to **promote data solidarity** towards policy makers and researchers, while ensuring EU values on **health data sensitivity** and **citizen control** are upheld.  
+
+- These leaderboards will **benchmark Belgian and Dutch cities** by:
+  - **Leaderboard 1**: Showing the percentage of citizens connected to WellData.
+  - **Leaderboard 2**: Showing the percentage of connected citizens who **support health data solidarity**.
+  - **Cities without connected users will not appear in Leaderboard 2**.
+
+### Signed-In Users
+- Once **signed in**, the **leaderboards will no longer appear** on the landing page but remain accessible via a **menu item**.
+- Instead, signed-in users will see a **landing page for managing personal goals**.
+  - Initially, these goal lists are **empty**, but users can **add goals** from a selection of those **supported by the WellData system**.
+
+## WellData Ecosystem
+
+Each **goal** in the WellData system is supported by **one or more apps** connected to the WellData ecosystem. This ecosystem serves as a **prototype of a European Health Data Space** designed for **preventive health**.
+
+### Initial Apps in the Ecosystem
+The following apps will be **connected to this prototype implementation**:
+- **[Selfcare](https://selfcare4me.com/)**
+- **[Zipster](https://www.zipster.care/)**
+- **[Bibopp](https://bibopp.be/)**
+
+Each of these apps had **existing functionalities** before the construction of the WellData data space. However, thanks to the data space, they are now **connected via the user's SOLID Pod**, eliminating the need for **duplicate data entry**.
 
 ## Author
 
@@ -24,16 +63,18 @@ A web application for managing files in a local SOLID pod with OpenID Connect su
 ### Application-Specific Documentation
 
 #### SolidJS File Manager (app)
+A very generic front-end for managing containers/files in a SOLID Pod.
+
 - [app/README.md](app/README.md) - Setup and usage instructions for the SolidJS application
 - [app/docs/COMPONENTS.md](app/docs/COMPONENTS.md) - Overview of key components and their interactions
 - [app/docs/TECHNICAL_DETAILS.md](app/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
 
-#### React Chakra UI Pod Manager (app2)
+#### Extended version of app1, with some preliminary support to manage FHIR plans (app2)
 - [app2/README.md](app2/README.md) - Setup and usage instructions for the React Chakra UI application
 - [app2/docs/COMPONENTS.md](app2/docs/COMPONENTS.md) - Overview of key components and their interactions
 - [app2/docs/TECHNICAL_DETAILS.md](app2/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
 
-#### WellData Health Application (welldata)
+#### WellData Health Data Space Reference App (welldata)
 - [welldata/README.md](welldata/README.md) - Setup and usage instructions for the WellData application
 - [welldata/docs/COMPONENTS.md](welldata/docs/COMPONENTS.md) - Overview of key components and their interactions
 - [welldata/docs/TECHNICAL_DETAILS.md](welldata/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
@@ -97,7 +138,7 @@ npm run dev:welldata
 
 ## Demo Applications Overview
 
-This project showcases three different applications that can interact with the same Solid Pod, demonstrating the interoperability of Solid applications:
+This project showcases three different applications that can interact with the same Solid Pod, demonstrating the interoperability of Solid applications. The primary focus is on the WellData application, with the other two applications serving as simpler demonstrations of Solid Pod interaction:
 
 ### 1. SolidJS File Manager (app)
 A file manager built with SolidJS that provides basic file and container management functionality. This application demonstrates:
@@ -113,11 +154,23 @@ An alternative UI built with React and Chakra UI that provides a more modern int
 - How multiple applications can access the same Pod
 
 ### 3. WellData Health Application (welldata)
-A specialized application for managing health data in a Solid Pod. This application demonstrates:
+The primary application in this project, designed to enable citizens to manage their own preventive health data in a SOLID Pod, while also enabling secondary use of such data for policy makers and researchers. This application demonstrates:
 - Creating specialized containers for health data
 - Implementing FHIR data structures in a Solid Pod
 - Creating WebIDs for containers
 - More advanced Solid features
+
+The WellData application represents a prototype implementation of a European Health Data Space focused on preventive health. It aims to create a citizen-centric health data ecosystem where:
+1. Citizens have full control over their preventive health data
+2. Data can be shared across multiple health applications without duplication
+3. Anonymized data can be used for research and policy-making with citizen consent
+
+#### Future WellData Features
+- **Leaderboards**: Promoting user onboarding and data solidarity
+- **Personal Health Goals Management**: Interface for users to add and manage personal health goals
+- **Connected App Ecosystem**: Integration with existing health applications like Selfcare, Zipster, and Bibopp
+
+The first two applications (SolidJS File Manager and React Chakra UI Pod Manager) serve as simpler demonstrations of Solid Pod interaction, providing a foundation for understanding how the more complex WellData application works.
 
 ## Testing Multiple Applications with the Same Pod
 

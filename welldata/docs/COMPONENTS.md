@@ -1,6 +1,19 @@
 # WellData Application Components
 
-This document provides an overview of the key components in the WellData application and explains how they interact to create a Solid-based data management system.
+This document provides an overview of the key components in the WellData application and explains how they interact to create a Solid-based preventive health data management system.
+
+## Introduction
+
+WellData is designed to enable citizens to manage their own preventive health data in a SOLID Pod, while also enabling secondary use of such data for policy makers and researchers. It represents a prototype implementation of a European Health Data Space focused on preventive health.
+
+The application is built on the Solid (Social Linked Data) platform, which provides a decentralized data storage model where users maintain control over their personal data. This aligns perfectly with the vision of citizen-controlled health data that can be shared across multiple health applications without duplication.
+
+In the future, WellData will be augmented with features such as:
+- Leaderboards to promote user onboarding and data solidarity
+- Personal health goals management
+- Integration with existing health applications like Selfcare, Zipster, and Bibopp
+
+The components described in this document form the foundation for these future features, with a focus on creating and managing the welldata container structure in the user's SOLID Pod.
 
 ## Table of Contents
 
@@ -18,7 +31,7 @@ This document provides an overview of the key components in the WellData applica
 
 ## Architecture Overview
 
-The WellData application is built on the Solid (Social Linked Data) platform, which provides a decentralized data storage model where users maintain control over their personal data. The application follows a component-based architecture using React and Chakra UI for the frontend, with the Solid Client libraries for interacting with Solid Pods.
+The WellData application follows a component-based architecture using React and Chakra UI for the frontend, with the Solid Client libraries for interacting with Solid Pods.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
