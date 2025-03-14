@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "community-solid-server -c config.json",
-    "start:server": "community-solid-server",
+    "start:server": "community-solid-server -c config.json",
     "register-clients": "chmod +x scripts/register-fixed-clients.sh && ./scripts/register-fixed-clients.sh",
     "dev:app1": "cd app && npm run dev",
     "dev:app2": "cd app2 && npm run dev",
