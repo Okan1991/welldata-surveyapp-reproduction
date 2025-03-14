@@ -31,7 +31,7 @@ import {
   getSourceUrl,
   FetchError
 } from '@inrupt/solid-client';
-import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
+import { fetch, getDefaultSession } from '@inrupt/solid-client-authn-browser';
 
 const ContainerManager: React.FC = () => {
   const [podUrl, setPodUrl] = useState('');
@@ -41,18 +41,37 @@ const ContainerManager: React.FC = () => {
   const [error, setError] = useState('');
   const toast = useToast();
   const cardBg = useColorModeValue('white', 'gray.700');
+  const debugMode = localStorage.getItem('welldata_debug_mode') === 'true';
 
   useEffect(() => {
     const session = getDefaultSession();
     if (session.info.isLoggedIn && session.info.webId) {
-      // Extract the Pod URL from the WebID
-      // Typically, the WebID is in the format: http://localhost:3000/[podname]/profile/card#me
-      const webIdUrl = session.info.webId;
-      const podUrlFromWebId = webIdUrl.split('/profile')[0];
-      setPodUrl(podUrlFromWebId);
-      fetchContainers(podUrlFromWebId);
+      try {
+        // Extract the Pod URL from the WebID
+        const webIdUrl = new URL(session.info.webId);
+        // Use the origin (protocol + hostname + port) as the base Pod URL
+        const podUrlFromWebId = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
+        
+        if (debugMode) {
+          console.log('WebID:', session.info.webId);
+          console.log('Extracted Pod URL:', podUrlFromWebId);
+        }
+        
+        setPodUrl(podUrlFromWebId);
+        fetchContainers(podUrlFromWebId);
+      } catch (error) {
+        console.error('Error extracting Pod URL from WebID:', error);
+        setError(`Failed to extract Pod URL from WebID: ${error.message}`);
+        toast({
+          title: 'Error',
+          description: `Failed to extract Pod URL from WebID: ${error.message}`,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     }
-  }, []);
+  }, [toast, debugMode]);
 
   const fetchContainers = async (url: string) => {
     if (!url) return;
@@ -61,9 +80,17 @@ const ContainerManager: React.FC = () => {
     setError('');
     
     try {
-      const dataset = await getSolidDataset(url, { fetch: getDefaultSession().fetch });
+      if (debugMode) {
+        console.log('Fetching containers from:', url);
+      }
+      
+      const dataset = await getSolidDataset(url, { fetch });
       const containerUrls = getContainedResourceUrlAll(dataset)
         .filter(url => url.endsWith('/'));
+      
+      if (debugMode) {
+        console.log('Found containers:', containerUrls);
+      }
       
       setContainers(containerUrls);
     } catch (e) {
@@ -92,8 +119,17 @@ const ContainerManager: React.FC = () => {
     setError('');
     
     try {
-      const containerUrl = `${podUrl}/${newContainerName}/`;
-      await createContainerAt(containerUrl, { fetch: getDefaultSession().fetch });
+      // Ensure we don't add extra slashes when creating the container URL
+      const containerName = newContainerName.startsWith('/') ? newContainerName.substring(1) : newContainerName;
+      const containerUrl = podUrl.endsWith('/') 
+        ? `${podUrl}${containerName}/` 
+        : `${podUrl}/${containerName}/`;
+      
+      if (debugMode) {
+        console.log('Creating container at:', containerUrl);
+      }
+      
+      await createContainerAt(containerUrl, { fetch });
       
       toast({
         title: 'Success',
@@ -126,7 +162,11 @@ const ContainerManager: React.FC = () => {
     setError('');
     
     try {
-      await deleteContainer(containerUrl, { fetch: getDefaultSession().fetch });
+      if (debugMode) {
+        console.log('Deleting container:', containerUrl);
+      }
+      
+      await deleteContainer(containerUrl, { fetch });
       
       toast({
         title: 'Success',
@@ -151,6 +191,18 @@ const ContainerManager: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to extract container name from URL
+  const getContainerName = (url: string): string => {
+    if (!url) return '';
+    
+    // Remove trailing slash if present
+    const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+    
+    // Get the last part of the URL
+    const parts = cleanUrl.split('/');
+    return parts[parts.length - 1] || url;
   };
 
   return (
@@ -210,7 +262,7 @@ const ContainerManager: React.FC = () => {
                   <ListItem key={containerUrl} p={2} borderWidth="1px" borderRadius="md">
                     <Flex align="center">
                       <Text fontSize="sm" isTruncated>
-                        {containerUrl.replace(podUrl, '')}
+                        {getContainerName(containerUrl)}
                       </Text>
                       <Spacer />
                       <IconButton

@@ -37,6 +37,39 @@ WellData aims to create a citizen-centric health data ecosystem where:
     - [Bibopp](https://bibopp.be/)
   - Shared data access through user's SOLID Pod to avoid duplicate data entry
 
+```mermaid
+graph TD;
+    subgraph User's SOLID Pod
+        HealthData[Health Data]
+        Goals[Personal Goals]
+        Connections[Connected Apps]
+    end
+    
+    Selfcare[Selfcare App] -->|Reads/Writes| HealthData
+    Selfcare -->|Reads/Writes| Goals
+
+    Zipster[Zipster App] -->|Reads/Writes| HealthData
+    Zipster -->|Reads/Writes| Goals
+
+    Bibopp[Bibopp App] -->|Reads/Writes| HealthData
+    Bibopp -->|Reads/Writes| Goals
+
+    PolicyMakers[Policy Makers] -->|Request Aggregated Data| User's SOLID Pod
+    Researchers[Researchers] -->|Request Aggregated Data| User's SOLID Pod
+    
+
+### Explanation:
+- The **User's SOLID Pod** contains:
+  - **Health Data** (managed by apps like Selfcare, Zipster, and Bibopp).
+  - **Personal Goals** (set and updated by these apps).
+  - **Connected Apps** (indicating integration with WellData).
+- **Apps (Selfcare, Zipster, and Bibopp)**:
+  - Can **read and write** both Health Data and Goals.
+  - Avoid **duplicate data entry** by syncing via the Pod.
+- **Secondary Use (Future Feature)**:
+  - **Policy Makers** and **Researchers** may request **aggregated, user-controlled data**.
+  - The **general public** sees very aggregated data, e.g. via the leaderboards
+
 ## Setup
 
 1. Install dependencies:

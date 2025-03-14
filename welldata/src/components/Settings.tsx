@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   VStack,
@@ -17,7 +17,15 @@ import {
   Divider,
   Flex,
   Image,
-  Spacer
+  Spacer,
+  Switch,
+  FormControl,
+  FormLabel,
+  Button,
+  useToast,
+  HStack,
+  Badge,
+  CardFooter
 } from '@chakra-ui/react';
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
 import ContainerManager from './ContainerManager';
@@ -27,10 +35,53 @@ import AuthManager from './AuthManager';
 const interRegLogoPath = '/images/InterRegVLNL.png';
 
 const Settings: React.FC = () => {
+  const [webId, setWebId] = useState<string>('');
+  const [debugMode, setDebugMode] = useState<boolean>(false);
+  const toast = useToast();
   const session = getDefaultSession();
-  const webId = session.info.webId || '';
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.700');
+
+  useEffect(() => {
+    // Get the current session
+    if (session.info.isLoggedIn) {
+      setWebId(session.info.webId || '');
+    }
+
+    // Load settings from localStorage
+    const savedDebugMode = localStorage.getItem('welldata_debug_mode');
+    if (savedDebugMode) {
+      setDebugMode(savedDebugMode === 'true');
+    }
+  }, [session.info.isLoggedIn]);
+
+  const handleDebugModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.checked;
+    setDebugMode(newValue);
+    localStorage.setItem('welldata_debug_mode', newValue.toString());
+    
+    toast({
+      title: newValue ? 'Debug Mode Enabled' : 'Debug Mode Disabled',
+      description: newValue 
+        ? 'Detailed logs will be shown in the browser console.' 
+        : 'Detailed logs are now hidden.',
+      status: 'info',
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  const clearLocalStorage = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    toast({
+      title: 'Storage Cleared',
+      description: 'Local storage has been cleared. Please refresh the page.',
+      status: 'info',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
 
   return (
     <Box>
@@ -106,6 +157,74 @@ const Settings: React.FC = () => {
           </Flex>
         </Container>
       </Box>
+      
+      <Card>
+        <CardHeader>
+          <Heading size="md">Application Settings</Heading>
+        </CardHeader>
+        <CardBody>
+          <VStack align="stretch" spacing={4}>
+            <FormControl display="flex" alignItems="center">
+              <FormLabel htmlFor="debug-mode" mb="0">
+                Debug Mode
+              </FormLabel>
+              <Switch 
+                id="debug-mode" 
+                isChecked={debugMode} 
+                onChange={handleDebugModeChange} 
+              />
+            </FormControl>
+            
+            <Text fontSize="sm" color="gray.500">
+              When debug mode is enabled, detailed logs will be shown in the browser console.
+              This can help troubleshoot issues with your Solid Pod.
+            </Text>
+          </VStack>
+        </CardBody>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <Heading size="md">Data Management</Heading>
+        </CardHeader>
+        <CardBody>
+          <VStack align="stretch" spacing={4}>
+            <Text>
+              Clear local storage to reset the application state. This will log you out.
+            </Text>
+            <Button colorScheme="red" onClick={clearLocalStorage}>
+              Clear Local Storage
+            </Button>
+          </VStack>
+        </CardBody>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <Heading size="md">About</Heading>
+        </CardHeader>
+        <CardBody>
+          <VStack align="start" spacing={4}>
+            <Text>
+              WellData is an application for managing health data in Solid Pods.
+            </Text>
+            <HStack>
+              <Badge colorScheme="blue">Version 1.0.0</Badge>
+              <Badge colorScheme="green">Solid Pod Compatible</Badge>
+            </HStack>
+          </VStack>
+        </CardBody>
+        <CardFooter>
+          <Flex direction="column" align="center" width="100%">
+            <Text fontSize="sm" mb={2}>Funded by:</Text>
+            <Image 
+              src={interRegLogoPath} 
+              alt="InterReg Vlaanderen-Nederland Logo" 
+              height="50px"
+            />
+          </Flex>
+        </CardFooter>
+      </Card>
     </Box>
   );
 };

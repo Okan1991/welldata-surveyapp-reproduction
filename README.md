@@ -41,6 +41,56 @@ The following apps will be **connected to this prototype implementation**:
 
 Each of these apps had **existing functionalities** before the construction of the WellData data space. However, thanks to the data space, they are now **connected via the user's SOLID Pod**, eliminating the need for **duplicate data entry**.
 
+```mermaid
+graph TD;
+    subgraph UserPod[User's SOLID Pod]
+        HealthData[Health Data]
+        Goals[Personal Goals]
+    end
+
+    subgraph PublicPortals[Public Portals]
+        HealthKPIs1[Health KPIs Region 1]
+        HealthKPIs2[Health KPIs Region 2]
+        HealthKPIs3[Health KPIs Region ...]
+    end
+
+    subgraph ProtectedResearchDatabases[Protected Research Databases]
+        RDB1[RDB1]
+        RDB2[RDB2]
+        RDB33[RDB3]
+    end
+
+    Citizen[Citizen] -->|Controls Secondary Use| WellDataApp    
+    WellDataApp[WellData App] -->|Reads/Writes| Goals  
+    WellDataApp[WellData App] -->|Reads| UserPod  
+    WellDataApp[WellData App] -->|Shares upon consent| PublicPortals
+    WellDataApp[WellData App] -->|Shares upon consent| ProtectedResearchDatabases
+
+    Selfcare[Selfcare App] -->|Reads/Writes| HealthData
+    Selfcare -->|Reads/Writes| Goals
+
+    Zipster[Zipster App] -->|Reads/Writes| HealthData
+    Zipster -->|Reads/Writes| Goals
+
+    Bibopp[Bibopp App] -->|Reads/Writes| HealthData
+    Bibopp -->|Reads/Writes| Goals
+
+    PolicyMakers[Policy Makers] -->|Benchmark| PublicPortals
+    Researchers[Researchers] -->|Consult| ProtectedResearchDatabases
+    GeneralPublic[Others] -->|Consult| PublicPortals
+```
+
+### Explanation:
+- The **User's SOLID Pod** contains:
+  - **Health Data** (managed by apps like Selfcare, Zipster, and Bibopp).
+  - **Personal Goals** (set and updated by these apps).
+- **Apps (Selfcare, Zipster, and Bibopp)**:
+  - Can **read and write** both Health Data and Goals.
+  - Avoid **duplicate data entry** by syncing via the Pod.
+- **Secondary Use (Future Feature)**:
+  - **Policy Makers** and **Researchers** may request **aggregated, user-controlled data**.
+
+
 ## Author
 
 **Pieter Van Gorp**
