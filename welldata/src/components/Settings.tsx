@@ -38,7 +38,8 @@ import AuthManager from './AuthManager';
 // @ts-ignore
 import packageInfo from '../../package.json';
 
-// Logo path
+// Logo paths
+const wellDataLogoPath = '/images/WellData.png';
 const interRegLogoPath = '/images/InterRegVLNL.png';
 
 const Settings: React.FC = () => {
@@ -224,6 +225,14 @@ const Settings: React.FC = () => {
                   </CardHeader>
                   <CardBody>
                     <VStack align="start" spacing={4} width="100%">
+                    <Box width="100%" textAlign="center">
+                        <Image 
+                          src={wellDataLogoPath} 
+                          alt="WellData Logo" 
+                          height="80px"
+                          mx="auto"
+                        />
+                      </Box>
                       <Text>
                         WellData is an application for managing health data in Solid Pods.
                       </Text>
@@ -256,6 +265,7 @@ const Settings: React.FC = () => {
                           Licensed under the Apache License, Version 2.0
                         </Text>
                       </Box>
+                      
                     </VStack>
                   </CardBody>
                 </Card>

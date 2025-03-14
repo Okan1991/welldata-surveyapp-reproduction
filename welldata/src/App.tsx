@@ -227,9 +227,6 @@ function App() {
                   height="100px"
                 />
               </Flex>
-              <Text fontSize="sm" color="gray.500" mt={4}>
-                Funded by InterReg Vlaanderen-Nederland
-              </Text>
             </Box>
           ) : (
             // Pod Manager - shown when showLandingPage is false and user is logged in
@@ -249,7 +246,6 @@ function App() {
                 <Text fontSize="sm">© {new Date().getFullYear()} WellData Project</Text>
                 
                 <Flex align="center" mt={{ base: 4, md: 0 }}>
-                  
                   <Image 
                     src={interRegLogoPath} 
                     alt="InterReg Vlaanderen-Nederland Logo" 
