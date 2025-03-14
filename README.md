@@ -44,8 +44,17 @@ Each of these apps had **existing functionalities** before the construction of t
 ```mermaid
 graph TD;
     subgraph UserPod[User's SOLID Pod]
-        HealthData[Health Data]
-        Goals[Personal Goals]
+
+        subgraph OtherPods[Other Pods]
+            TaxData[Tax Data]
+            EnergyData[Energy Data]
+            EtcData[...]
+        end
+
+        subgraph WellDataPod[WellData Pod]
+            HealthData[Health Data]
+            Goals[Personal Goals]
+        end
     end
 
     subgraph PublicPortals[Public Portals]
@@ -66,14 +75,18 @@ graph TD;
     WellDataApp[WellData App] -->|Shares upon consent| PublicPortals
     WellDataApp[WellData App] -->|Shares upon consent| ProtectedResearchDatabases
 
-    Selfcare[Selfcare App] -->|Reads/Writes| HealthData
-    Selfcare -->|Reads/Writes| Goals
+    Citizen[Citizen] -->|Controls| Selfcare
+    Citizen[Citizen] -->|Controls| Zipster
+    Citizen[Citizen] -->|Controls| Bibopp
 
-    Zipster[Zipster App] -->|Reads/Writes| HealthData
-    Zipster -->|Reads/Writes| Goals
+    Selfcare[Selfcare App] -->|Reads/Writes| WellDataPod
+    
 
-    Bibopp[Bibopp App] -->|Reads/Writes| HealthData
-    Bibopp -->|Reads/Writes| Goals
+    Zipster[Zipster App] -->|Reads/Writes| WellDataPod
+    
+
+    Bibopp[Bibopp App] -->|Reads/Writes| WellDataPod
+    
 
     PolicyMakers[Policy Makers] -->|Benchmark| PublicPortals
     Researchers[Researchers] -->|Consult| ProtectedResearchDatabases
@@ -88,7 +101,7 @@ graph TD;
   - Can **read and write** both Health Data and Goals.
   - Avoid **duplicate data entry** by syncing via the Pod.
 - **Secondary Use (Future Feature)**:
-  - **Policy Makers** and **Researchers** may request **aggregated, user-controlled data**.
+  - **Policy Makers** and **Researchers** may access **aggregated, user-controlled data** that is derived and then stored elsewhere.
 
 
 ## Author
