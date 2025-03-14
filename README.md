@@ -15,12 +15,21 @@ A web application for managing files in a local SOLID pod with OpenID Connect su
 - RDF-based file metadata using Dublin Core Terms vocabulary
 - Modern, responsive UI
 
+## Documentation
+
+- [README.md](README.md) - This file, containing setup and usage instructions
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Solutions for common issues
+- [docs/COMPONENTS.md](docs/COMPONENTS.md) - Overview of key components and their interactions
+- [docs/TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
+
 ## Project Structure
 
 - `/` - Root directory containing the SOLID server configuration
 - `/app` - SolidJS application for managing files in a SOLID pod
 - `/app2` - Alternative React application with Chakra UI
+- `/welldata` - WellData application for managing health data in a SOLID pod
 - `/scripts` - Utility scripts for managing client registrations and authentication
+- `/docs` - Detailed documentation about components and implementation
 
 ## Setup
 
@@ -38,9 +47,14 @@ cd ..
 cd app2
 npm install
 cd ..
+
+# Install welldata app dependencies
+cd welldata
+npm install
+cd ..
 ```
 
-2. Start all components (server and both apps):
+2. Start all components (server and all apps):
 ```bash
 npm run dev
 ```
