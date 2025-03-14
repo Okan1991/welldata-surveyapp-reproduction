@@ -17,10 +17,26 @@ A web application for managing files in a local SOLID pod with OpenID Connect su
 
 ## Documentation
 
+### Project Documentation
 - [README.md](README.md) - This file, containing setup and usage instructions
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Solutions for common issues
-- [docs/COMPONENTS.md](docs/COMPONENTS.md) - Overview of key components and their interactions
-- [docs/TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
+
+### Application-Specific Documentation
+
+#### SolidJS File Manager (app)
+- [app/README.md](app/README.md) - Setup and usage instructions for the SolidJS application
+- [app/docs/COMPONENTS.md](app/docs/COMPONENTS.md) - Overview of key components and their interactions
+- [app/docs/TECHNICAL_DETAILS.md](app/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
+
+#### React Chakra UI Pod Manager (app2)
+- [app2/README.md](app2/README.md) - Setup and usage instructions for the React Chakra UI application
+- [app2/docs/COMPONENTS.md](app2/docs/COMPONENTS.md) - Overview of key components and their interactions
+- [app2/docs/TECHNICAL_DETAILS.md](app2/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
+
+#### WellData Health Application (welldata)
+- [welldata/README.md](welldata/README.md) - Setup and usage instructions for the WellData application
+- [welldata/docs/COMPONENTS.md](welldata/docs/COMPONENTS.md) - Overview of key components and their interactions
+- [welldata/docs/TECHNICAL_DETAILS.md](welldata/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
 
 ## Project Structure
 
@@ -29,7 +45,6 @@ A web application for managing files in a local SOLID pod with OpenID Connect su
 - `/app2` - Alternative React application with Chakra UI
 - `/welldata` - WellData application for managing health data in a SOLID pod
 - `/scripts` - Utility scripts for managing client registrations and authentication
-- `/docs` - Detailed documentation about components and implementation
 
 ## Setup
 
@@ -70,23 +85,51 @@ npm run dev:app1
 
 # Start the second web application
 npm run dev:app2
+
+# Start the welldata application
+npm run dev:welldata
 ```
 
 3. Access the applications:
    - First app: http://localhost:5173
    - Second app: http://localhost:5174
+   - WellData app: http://localhost:5175
+
+## Demo Applications Overview
+
+This project showcases three different applications that can interact with the same Solid Pod, demonstrating the interoperability of Solid applications:
+
+### 1. SolidJS File Manager (app)
+A file manager built with SolidJS that provides basic file and container management functionality. This application demonstrates:
+- Using SolidJS with Solid Client libraries
+- Basic file operations (create, read, delete)
+- Container management
+- Simple, functional UI
+
+### 2. React Chakra UI Pod Manager (app2)
+An alternative UI built with React and Chakra UI that provides a more modern interface for managing Solid Pods. This application demonstrates:
+- Using React with Chakra UI for a modern interface
+- The same functionality as the first app but with a different UI
+- How multiple applications can access the same Pod
+
+### 3. WellData Health Application (welldata)
+A specialized application for managing health data in a Solid Pod. This application demonstrates:
+- Creating specialized containers for health data
+- Implementing FHIR data structures in a Solid Pod
+- Creating WebIDs for containers
+- More advanced Solid features
 
 ## Testing Multiple Applications with the Same Pod
 
-This project demonstrates how multiple applications can authenticate and access the same Solid Pod, which is a key feature of the Solid ecosystem. Both applications use the same local WebID and Pod, but have completely different user interfaces.
+This project demonstrates how multiple applications can authenticate and access the same Solid Pod, which is a key feature of the Solid ecosystem. All three applications use the same local WebID and Pod, but have completely different user interfaces and functionality.
 
 To test this functionality:
 
-1. Start both applications and the Solid server
+1. Start all applications and the Solid server
 2. Create a test account and Pod on the local Solid server
-3. Log in to both applications using the same WebID
+3. Log in to all applications using the same WebID
 4. Make changes in one application (e.g., create a container)
-5. Observe that the changes are visible in the other application
+5. Observe that the changes are visible in the other applications
 
 This demonstrates the interoperability of Solid applications and how users can control their data while using multiple applications.
 
@@ -112,6 +155,7 @@ npm run start:server
 # 3. Start the applications
 cd app && npm run dev
 cd app2 && npm run dev
+cd welldata && npm run dev
 ```
 
 Alternatively, you can use the all-in-one script to start all servers with proper configuration:
@@ -124,7 +168,7 @@ See the [scripts README](./scripts/README.md) for more details.
 
 ### 2. Clear Auth Data Button
 
-Both applications include a "Clear Auth Data" button that appears when you're logged in. This button:
+All applications include a "Clear Auth Data" button that appears when you're logged in. This button:
 
 - Clears all Solid-related authentication data from your browser's local storage
 - Reloads the page so you can log in again with fresh credentials
@@ -183,7 +227,7 @@ For development purposes, it's recommended to use a locally generated WebID rath
 
 The project uses:
 - Community Solid Server for the SOLID pod
-- SolidJS for the web application
+- SolidJS and React for the web applications
 - Inrupt Solid Client libraries for SOLID interactions
 - TypeScript for type safety
 - Vite for development and building
