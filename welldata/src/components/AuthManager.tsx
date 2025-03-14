@@ -25,7 +25,8 @@ import {
   CardFooter,
   CardHeader,
   Stack,
-  useToast
+  useToast,
+  Spinner
 } from '@chakra-ui/react';
 import {
   login,
@@ -36,6 +37,7 @@ import {
 import clientCredentials from '../../../shared/client-credentials.json';
 // Use dynamic credentials for welldata
 import clientCredentialsDynamic from '../../../.data/client-credentials/welldata-credentials.json';
+import { ensureWelldataStructure } from '../services/podService';
 
 
 // Use dynamic credentials for welldata - these are the ones registered with the server
@@ -73,6 +75,7 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
   const [webId, setWebId] = useState('');
   const [issuer, setIssuer] = useState('http://localhost:3000');
   const [loading, setLoading] = useState(false);
+  const [initializingPod, setInitializingPod] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -84,6 +87,10 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
         if (session.info.isLoggedIn) {
           setIsLoggedIn(true);
           setWebId(session.info.webId || '');
+          
+          // Ensure welldata structure exists
+          await ensureWelldataStructureOnLogin(session.info.webId || '');
+          
           if (typeof onLogin === 'function') {
             onLogin(session.info.webId || '');
           }
@@ -104,6 +111,65 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
 
     checkSession();
   }, [onLogin, toast]);
+
+  const ensureWelldataStructureOnLogin = async (webId: string) => {
+    if (!webId) return;
+    
+    try {
+      setInitializingPod(true);
+      
+      // Extract the pod URL from the WebID
+      const webIdUrl = new URL(webId);
+      
+      // Extract the Pod container URL from the WebID
+      // WebID format is typically: http://localhost:3000/alice/profile/card#me
+      // Pod container is typically: http://localhost:3000/alice/
+      let podUrl = '';
+      const pathParts = webIdUrl.pathname.split('/').filter(Boolean);
+      
+      // The first part of the path is usually the username/pod name
+      if (pathParts.length > 0) {
+        podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/${pathParts[0]}/`;
+      } else {
+        // Fallback to the root URL if we can't extract from WebID
+        podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
+      }
+      
+      // Check if debug mode is enabled
+      const debugMode = localStorage.getItem('welldata_debug_mode') === 'true';
+      
+      if (debugMode) {
+        console.log('WebID:', webId);
+        console.log('Extracted Pod URL:', podUrl);
+      }
+      
+      // Ensure the welldata structure exists
+      const result = await ensureWelldataStructure(podUrl, { 
+        debug: debugMode,
+        createWebId: true 
+      });
+      
+      if (result.success) {
+        if (debugMode) {
+          console.log('Welldata structure check completed:', result.message);
+          console.log('Welldata URL:', result.welldataUrl);
+        }
+      } else {
+        console.error('Failed to ensure welldata structure:', result.message);
+        toast({
+          title: 'Welldata Structure Error',
+          description: `Could not initialize welldata structure: ${result.message}`,
+          status: 'warning',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } catch (error) {
+      console.error('Error ensuring welldata structure:', error);
+    } finally {
+      setInitializingPod(false);
+    }
+  };
 
   const handleLogin = async () => {
     setLoading(true);
@@ -195,6 +261,13 @@ const AuthManager: React.FC<AuthManagerProps> = ({ onLogin, onLogout }) => {
           <Stack spacing={2}>
             <Text fontWeight="medium" fontSize="sm">WebID:</Text>
             <Text fontSize="sm" wordBreak="break-all">{webId}</Text>
+            
+            {initializingPod && (
+              <HStack spacing={2} mt={2}>
+                <Spinner size="sm" />
+                <Text fontSize="sm" color="blue.500">Initializing welldata structure...</Text>
+              </HStack>
+            )}
           </Stack>
         )}
       </CardBody>

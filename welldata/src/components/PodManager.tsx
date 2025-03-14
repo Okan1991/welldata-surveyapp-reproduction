@@ -111,10 +111,31 @@ const PodManager = () => {
     if (session.info.isLoggedIn && session.info.webId) {
       // Extract the pod URL from the WebID
       const webIdUrl = new URL(session.info.webId);
-      const podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
+      
+      // Extract the Pod container URL from the WebID
+      // WebID format is typically: http://localhost:3000/alice/profile/card#me
+      // Pod container is typically: http://localhost:3000/alice/
+      const pathParts = webIdUrl.pathname.split('/').filter(Boolean);
+      
+      let podUrl = '';
+      // The first part of the path is usually the username/pod name
+      if (pathParts.length > 0) {
+        podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/${pathParts[0]}/`;
+      } else {
+        // Fallback to the root URL if we can't extract from WebID
+        podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
+      }
+      
+      // Debug logging
+      const debugMode = localStorage.getItem('welldata_debug_mode') === 'true';
+      if (debugMode) {
+        console.log('WebID:', session.info.webId);
+        console.log('Extracted Pod URL for PodManager:', podUrl);
+      }
+      
       setCurrentUrl(podUrl);
       loadContainer(podUrl);
-      // Check for welldata container in the current container
+      // Check for welldata container in the Pod container
       checkWelldataContainer(podUrl);
     }
   }, []);
@@ -341,27 +362,53 @@ const PodManager = () => {
 
   const checkWelldataContainer = async (podUrl: string) => {
     try {
-      const session = getDefaultSession();
-      if (!session.info.webId) return;
-
-      // Get the dataset for the current container
-      const podDataset = await getSolidDataset(podUrl, { fetch });
-      const containedUrls = getContainedResourceUrlAll(podDataset);
+      // Debug logging
+      const debugMode = localStorage.getItem('welldata_debug_mode') === 'true';
+      if (debugMode) {
+        console.log('Checking for welldata container in:', podUrl);
+      }
       
-      // Check if the current container has a welldata container
-      const welldataUrl = containedUrls.find(url => url.includes('/welldata/') && url.startsWith(podUrl));
+      const dataset = await getSolidDataset(podUrl, { fetch });
+      const containedUrls = getContainedResourceUrlAll(dataset);
+      
+      // Check if welldata container exists in the current container
+      const welldataUrl = containedUrls.find(url => url.endsWith('welldata/'));
       
       if (welldataUrl) {
-        console.log('Found welldata container:', welldataUrl);
+        if (debugMode) {
+          console.log('Found welldata container at:', welldataUrl);
+        }
+        
         setHasWelldataContainer(true);
         setWelldataUrl(welldataUrl);
+        
+        // Check if the data/plans/initial-plan.ttl exists
+        try {
+          const initialPlanUrl = `${welldataUrl}data/plans/initial-plan.ttl`;
+          await getSolidDataset(initialPlanUrl, { fetch });
+          
+          // If we get here, the initial plan exists
+          toast({
+            title: 'WellData Container Ready',
+            description: 'Your WellData container is properly set up with an initial plan.',
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+          });
+        } catch (error) {
+          // Initial plan might not exist, but that's okay - it will be created automatically
+          console.log('Initial plan not found, it will be created automatically if needed.');
+        }
       } else {
-        console.log('No welldata container found in current container');
+        if (debugMode) {
+          console.log('No welldata container found in:', podUrl);
+        }
+        
         setHasWelldataContainer(false);
         setWelldataUrl(null);
       }
     } catch (error) {
-      console.error('Error checking welldata container:', error);
+      console.error('Error checking for welldata container:', error);
       setHasWelldataContainer(false);
       setWelldataUrl(null);
     }

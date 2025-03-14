@@ -75,14 +75,31 @@ const WelldataPodCreator: React.FC<WelldataPodCreatorProps> = ({ onPodCreated })
         return;
       }
       
-      // Use the current container URL instead of the root Pod URL
-      // This will create the welldata container within the current container
-      const currentContainerUrl = window.location.hash.substring(1) || '';
+      // Extract the Pod container URL from the WebID
+      // WebID format is typically: http://localhost:3000/alice/profile/card#me
+      // Pod container is typically: http://localhost:3000/alice/
+      const webIdUrl = new URL(session.info.webId);
+      const pathParts = webIdUrl.pathname.split('/').filter(Boolean);
       
-      // Create the welldata container in the current container
-      const welldataContainerUrl = currentContainerUrl 
-        ? `${currentContainerUrl}welldata/` 
-        : `${session.info.webId?.split('/profile')[0]}/welldata/`;
+      let podContainerUrl = '';
+      // The first part of the path is usually the username/pod name
+      if (pathParts.length > 0) {
+        podContainerUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/${pathParts[0]}/`;
+      } else {
+        // Fallback to the root URL if we can't extract from WebID
+        podContainerUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
+      }
+      
+      // Create the welldata container in the Pod container
+      const welldataContainerUrl = `${podContainerUrl}welldata/`;
+      
+      // Debug logging
+      const debugMode = localStorage.getItem('welldata_debug_mode') === 'true';
+      if (debugMode) {
+        console.log('WebID:', session.info.webId);
+        console.log('Extracted Pod container URL:', podContainerUrl);
+        console.log('Creating welldata container at:', welldataContainerUrl);
+      }
       
       await createContainerAt(welldataContainerUrl, { fetch });
       
