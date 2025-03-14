@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ChakraProvider,
   Box,
@@ -62,18 +62,42 @@ const theme = extendTheme({
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLandingPage, setShowLandingPage] = useState(true);
+  const [userInitiatedAction, setUserInitiatedAction] = useState(false);
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const textColor = useColorModeValue('gray.800', 'white');
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  // Function to navigate to the landing page
   const goToHome = () => {
     setShowSettings(false);
+    setShowLandingPage(true);
+    setUserInitiatedAction(true);
+    console.log("Going to home page, showLandingPage set to:", true);
   };
+
+  // Function to navigate to the pod manager
+  const goToPodManager = () => {
+    setShowLandingPage(false);
+    setShowSettings(false);
+    setUserInitiatedAction(true);
+  };
+
+  // This effect will prevent automatic redirects from the landing page
+  // unless the user has explicitly initiated an action
+  useEffect(() => {
+    // Reset the user initiated action flag after it's been processed
+    return () => {
+      if (userInitiatedAction) {
+        setUserInitiatedAction(false);
+      }
+    };
+  }, [showLandingPage, showSettings, userInitiatedAction]);
 
   return (
     <ChakraProvider theme={theme}>
       <Box bg={bgColor} color={textColor} minH="100vh" display="flex" flexDirection="column">
-        {/* Header with EU branding and WellData logo */}
+        {/* Header with WellData logo */}
         <Flex 
           as="header" 
           bg="eu.blue" 
@@ -82,19 +106,8 @@ function App() {
           alignItems="center" 
           boxShadow="md"
         >
-          <HStack spacing={3}>
-            <Image 
-              src="https://european-union.europa.eu/themes/contrib/oe_theme/dist/eu/images/logo/standard-version/positive/logo-eu--en.svg" 
-              alt="EU Logo" 
-              height="30px"
-              display={{ base: 'none', md: 'block' }}
-            />
-            <Heading as="h1" size="md">WellData</Heading>
-          </HStack>
-          <Spacer />
-          
           {/* WellData Logo - Clickable to go to home */}
-          <Link onClick={goToHome} mr={4}>
+          <Link onClick={goToHome}>
             <Image 
               src={wellDataLogoPath} 
               alt="WellData Logo" 
@@ -104,6 +117,8 @@ function App() {
               _hover={{ transform: 'scale(1.05)' }}
             />
           </Link>
+          
+          <Spacer />
           
           <Popover isOpen={isOpen} onClose={onClose} placement="bottom-end">
             <PopoverTrigger>
@@ -120,22 +135,58 @@ function App() {
               <PopoverCloseButton />
               <PopoverBody p={4}>
                 <AuthManager 
-                  onLogin={(webId) => setIsLoggedIn(true)} 
-                  onLogout={() => setIsLoggedIn(false)} 
+                  onLogin={(webId) => {
+                    setIsLoggedIn(true);
+                    // Only redirect to pod manager if no user-initiated action has occurred
+                    if (!userInitiatedAction) {
+                      setShowLandingPage(false);
+                    }
+                  }} 
+                  onLogout={() => {
+                    setIsLoggedIn(false);
+                    // When user logs out, show the landing page
+                    setShowLandingPage(true);
+                  }} 
                 />
                 {isLoggedIn && (
                   <Box mt={4} textAlign="center">
-                    <Text 
-                      as="button" 
-                      color="eu.blue" 
-                      fontWeight="bold"
-                      onClick={() => {
-                        setShowSettings(true);
-                        onClose();
-                      }}
-                    >
-                      Open Settings
-                    </Text>
+                    <VStack spacing={2}>
+                      <Text 
+                        as="button" 
+                        color="eu.blue" 
+                        fontWeight="bold"
+                        onClick={() => {
+                          setShowSettings(true);
+                          setShowLandingPage(false);
+                          setUserInitiatedAction(true);
+                          onClose();
+                        }}
+                      >
+                        Open Settings
+                      </Text>
+                      <Text 
+                        as="button" 
+                        color="eu.blue" 
+                        fontWeight="bold"
+                        onClick={() => {
+                          goToPodManager();
+                          onClose();
+                        }}
+                      >
+                        Manage Pods
+                      </Text>
+                      <Text 
+                        as="button" 
+                        color="eu.blue" 
+                        fontWeight="bold"
+                        onClick={() => {
+                          goToHome();
+                          onClose();
+                        }}
+                      >
+                        Home Page
+                      </Text>
+                    </VStack>
                   </Box>
                 )}
               </PopoverBody>
@@ -147,52 +198,60 @@ function App() {
         <Container maxW="container.lg" py={6} flex="1">
           {showSettings && isLoggedIn ? (
             <Settings />
+          ) : showLandingPage ? (
+            // Landing page - shown when showLandingPage is true, regardless of login status
+            <Box textAlign="center" mt={10}>
+              <Heading as="h2" size="lg" mb={4}>
+                Welcome to WellData
+              </Heading>
+              <Text fontSize="md" mb={6}>
+                Hello World! This is the WellData application for managing well data in Solid Pods.
+              </Text>
+              <Text fontSize="md" mb={6}>
+                {isLoggedIn 
+                  ? "Click 'Manage Pods' in the settings menu to start working with your data."
+                  : "Please log in using the settings icon in the top right corner to access your data."
+                }
+              </Text>
+              <Flex justifyContent="center" mt={8}>
+                <Image 
+                  src={wellDataLogoPath} 
+                  alt="WellData Logo" 
+                  height="100px"
+                />
+              </Flex>
+              <Text fontSize="sm" color="gray.500" mt={4}>
+                Funded by InterReg Vlaanderen-Nederland
+              </Text>
+            </Box>
           ) : (
-            <>
-              {isLoggedIn && <PodManager />}
-              {!isLoggedIn && (
-                <Box textAlign="center" mt={10}>
-                  <Heading as="h2" size="lg" mb={4}>
-                    Welcome to WellData
-                  </Heading>
-                  <Text fontSize="md" mb={6}>
-                    Hello World! This is the WellData application for managing well data in Solid Pods.
-                  </Text>
-                  <Text fontSize="md" mb={6}>
-                    Please log in using the settings icon in the top right corner to access your data.
-                  </Text>
-                  <Flex justifyContent="center" mt={8}>
-                    <Image 
-                      src={wellDataLogoPath} 
-                      alt="WellData Logo" 
-                      height="100px"
-                    />
-                  </Flex>
-                  <Text fontSize="sm" color="gray.500" mt={4}>
-                    Funded by InterReg Vlaanderen-Nederland
-                  </Text>
-                </Box>
-              )}
-            </>
+            // Pod Manager - shown when showLandingPage is false and user is logged in
+            isLoggedIn && <PodManager />
           )}
         </Container>
         
-        {/* Footer with funding agency logo */}
-        <Box as="footer" bg="eu.blue" color="white" p={4}>
-          <Container maxW="container.lg">
-            <Flex direction={{ base: 'column', md: 'row' }} align="center" justify="space-between">
-              <Text fontSize="sm">© {new Date().getFullYear()} WellData Project</Text>
-              
-              <Flex align="center" mt={{ base: 4, md: 0 }}>
-                <Text fontSize="sm" mr={2}>Funded by:</Text>
-                <Image 
-                  src={interRegLogoPath} 
-                  alt="InterReg Vlaanderen-Nederland Logo" 
-                  height="50px"
-                />
+        {/* Footer with blue divider and white background */}
+        <Box>
+          {/* Blue divider */}
+          <Box bg="eu.blue" h="4px" />
+          
+          {/* White footer content */}
+          <Box as="footer" bg="white" color="gray.700" p={4}>
+            <Container maxW="container.lg">
+              <Flex direction={{ base: 'column', md: 'row' }} align="center" justify="space-between">
+                <Text fontSize="sm">© {new Date().getFullYear()} WellData Project</Text>
+                
+                <Flex align="center" mt={{ base: 4, md: 0 }}>
+                  <Text fontSize="sm" mr={2}>Funded by:</Text>
+                  <Image 
+                    src={interRegLogoPath} 
+                    alt="InterReg Vlaanderen-Nederland Logo" 
+                    height="50px"
+                  />
+                </Flex>
               </Flex>
-            </Flex>
-          </Container>
+            </Container>
+          </Box>
         </Box>
       </Box>
     </ChakraProvider>
