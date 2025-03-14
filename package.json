@@ -8,7 +8,9 @@
     "start:server": "community-solid-server",
     "dev:app1": "cd app && npm run dev",
     "dev:app2": "cd app2 && npm run dev",
-    "dev": "concurrently \"npm run start:server\" \"npm run dev:app1\" \"npm run dev:app2\"",
+    "dev:welldata": "cd welldata && npm run dev",
+    "dev": "concurrently \"npm run start:server\" \"npm run dev:app1\" \"npm run dev:app2\" \"npm run dev:welldata\"",
+    "dev:minimal": "concurrently \"npm run start:server\" \"npm run dev:welldata\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
