@@ -96,7 +96,7 @@ const Settings: React.FC = () => {
             <Text fontSize="sm">© {new Date().getFullYear()} WellData Project</Text>
             
             <Flex align="center" mt={{ base: 4, md: 0 }}>
-              <Text fontSize="sm" mr={2}>Funded by:</Text>
+              
               <Image 
                 src={interRegLogoPath} 
                 alt="InterReg Vlaanderen-Nederland Logo" 

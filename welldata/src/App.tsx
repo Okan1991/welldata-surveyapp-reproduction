@@ -108,14 +108,21 @@ function App() {
         >
           {/* WellData Logo - Clickable to go to home */}
           <Link onClick={goToHome}>
-            <Image 
-              src={wellDataLogoPath} 
-              alt="WellData Logo" 
-              height="40px"
-              cursor="pointer"
+            <Box 
+              bg="white" 
+              p={2} 
+              borderRadius="md" 
+              boxShadow="sm"
               transition="transform 0.2s"
               _hover={{ transform: 'scale(1.05)' }}
-            />
+            >
+              <Image 
+                src={wellDataLogoPath} 
+                alt="WellData Logo" 
+                height="36px"
+                cursor="pointer"
+              />
+            </Box>
           </Link>
           
           <Spacer />
@@ -242,7 +249,7 @@ function App() {
                 <Text fontSize="sm">© {new Date().getFullYear()} WellData Project</Text>
                 
                 <Flex align="center" mt={{ base: 4, md: 0 }}>
-                  <Text fontSize="sm" mr={2}>Funded by:</Text>
+                  
                   <Image 
                     src={interRegLogoPath} 
                     alt="InterReg Vlaanderen-Nederland Logo" 
