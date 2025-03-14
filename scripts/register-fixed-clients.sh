@@ -5,86 +5,45 @@
 
 # Configuration
 SOLID_SERVER="http://localhost:3000"
-APP1_NAME="Solid File Manager"
-APP1_URL="http://localhost:5173"
-APP1_CLIENT_ID="iNjPmF4z0lRNYbV87EYw8"
-APP1_CLIENT_SECRET="your_client_secret_here"
+CREDENTIALS_FILE="./shared/client-credentials.json"
 
-APP2_NAME="Solid Pod Manager (App2)"
-APP2_URL="http://localhost:5174"
-APP2_CLIENT_ID="aXk8kgN_ZhypjsrBC9GQn"
-APP2_CLIENT_SECRET="your_app2_client_secret_here"
-
-WELLDATA_NAME="welldata"
-WELLDATA_URL="http://localhost:5175"
-WELLDATA_CLIENT_ID="welldata-id-static"
-WELLDATA_CLIENT_SECRET="welldata-secret-static"
+# Check if the credentials file exists
+if [ ! -f "$CREDENTIALS_FILE" ]; then
+  echo "Error: Client credentials file not found at $CREDENTIALS_FILE"
+  exit 1
+fi
 
 # Create .data/client-credentials directory if it doesn't exist
 mkdir -p ./.data/client-credentials
 
 echo "Registering client applications with the Solid server..."
 
-# Register the first application
-echo "Registering $APP1_NAME..."
-curl -X POST "$SOLID_SERVER/.oidc/reg" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"application_type\": \"web\",
-    \"redirect_uris\": [\"$APP1_URL\"],
-    \"client_name\": \"$APP1_NAME\",
-    \"scope\": \"openid profile offline_access webid\",
-    \"client_id\": \"$APP1_CLIENT_ID\",
-    \"client_secret\": \"$APP1_CLIENT_SECRET\"
-  }" > ./.data/client-credentials/app1-credentials.json
+# Function to extract values from JSON
+extract_value() {
+  local app=$1
+  local key=$2
+  grep -o "\"$app\":{[^}]*\"$key\":\"[^\"]*\"" "$CREDENTIALS_FILE" | grep -o "\"$key\":\"[^\"]*\"" | cut -d'"' -f4
+}
 
-# Register the second application
-echo "Registering $APP2_NAME..."
-curl -X POST "$SOLID_SERVER/.oidc/reg" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"application_type\": \"web\",
-    \"redirect_uris\": [\"$APP2_URL\"],
-    \"client_name\": \"$APP2_NAME\",
-    \"scope\": \"openid profile offline_access webid\",
-    \"client_id\": \"$APP2_CLIENT_ID\",
-    \"client_secret\": \"$APP2_CLIENT_SECRET\"
-  }" > ./.data/client-credentials/app2-credentials.json
-
-# Register welldata application
-echo "Registering $WELLDATA_NAME..."
-curl -X POST "$SOLID_SERVER/.oidc/reg" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"application_type\": \"web\",
-    \"redirect_uris\": [\"$WELLDATA_URL\"],
-    \"client_name\": \"$WELLDATA_NAME\",
-    \"scope\": \"openid profile offline_access webid\",
-    \"client_id\": \"$WELLDATA_CLIENT_ID\",
-    \"client_secret\": \"$WELLDATA_CLIENT_SECRET\"
-  }" > ./.data/client-credentials/welldata-credentials.json
+# Register each application from the credentials file
+for APP_ID in $(grep -o "\"[^\"]*\":{" "$CREDENTIALS_FILE" | cut -d'"' -f2); do
+  APP_NAME=$(extract_value "$APP_ID" "name")
+  APP_URL=$(extract_value "$APP_ID" "redirect_uri")
+  CLIENT_ID=$(extract_value "$APP_ID" "client_id")
+  CLIENT_SECRET=$(extract_value "$APP_ID" "client_secret")
+  
+  echo "Registering $APP_NAME..."
+  curl -X POST "$SOLID_SERVER/.oidc/reg" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"application_type\": \"web\",
+      \"redirect_uris\": [\"$APP_URL\"],
+      \"client_name\": \"$APP_NAME\",
+      \"scope\": \"openid profile offline_access webid\",
+      \"client_id\": \"$CLIENT_ID\",
+      \"client_secret\": \"$CLIENT_SECRET\"
+    }" > ./.data/client-credentials/${APP_ID}-credentials.json
+done
 
 echo "Client registration complete."
-echo "You can now modify your applications to use these fixed client IDs."
-
-# Save all credentials to the shared file
-echo "{
-  \"app1\": {
-    \"client_id\": \"$APP1_CLIENT_ID\",
-    \"client_secret\": \"$APP1_CLIENT_SECRET\",
-    \"name\": \"$APP1_NAME\",
-    \"redirect_uri\": \"$APP1_URL\"
-  },
-  \"welldata\": {
-    \"client_id\": \"$WELLDATA_CLIENT_ID\",
-    \"client_secret\": \"$WELLDATA_CLIENT_SECRET\",
-    \"name\": \"$WELLDATA_NAME\",
-    \"redirect_uri\": \"$WELLDATA_URL\"
-  },
-  \"app2\": {
-    \"client_id\": \"$APP2_CLIENT_ID\",
-    \"client_secret\": \"$APP2_CLIENT_SECRET\",
-    \"name\": \"$APP2_NAME\",
-    \"redirect_uri\": \"$APP2_URL\"
-  }
-}" > ./shared/client-credentials.json 
+echo "All applications have been registered with their fixed client IDs from $CREDENTIALS_FILE" 
