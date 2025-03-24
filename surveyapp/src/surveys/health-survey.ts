@@ -78,6 +78,7 @@ export const healthSurvey: SurveyDefinition = {
       required: true,
       text: 'Rook je?',
       answerOption: [
+        { valueString: 'yes', valueCoding: [{ system: 'http://snomed.info/sct', code: '373066001', display: 'Ja' }] },
         { valueString: 'no', valueCoding: [{ system: 'http://snomed.info/sct', code: '373067005', display: 'Nee' }] }
       ]
     },

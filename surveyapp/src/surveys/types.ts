@@ -18,13 +18,17 @@ export interface FHIRQuestionItem {
   helpText?: string;
   answerOption?: FHIRChoice[];
   answerValueSet?: string; // Reference to a ValueSet
-  validation?: {
-    min?: number;
-    max?: number;
-    pattern?: string;
-  };
+  validation?: Validation;
   item?: FHIRQuestionItem[]; // For nested questions
   extension?: any[];
+}
+
+export interface Validation {
+  min?: number;
+  max?: number;
+  pattern?: string;
+  step?: number;
+  unit?: string;
 }
 
 export interface FHIRQuestionnaire {
