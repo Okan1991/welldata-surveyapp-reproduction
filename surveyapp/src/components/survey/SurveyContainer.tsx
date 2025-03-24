@@ -20,6 +20,7 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   const [answers, setAnswers] = React.useState<Record<string, any>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const bgColor = useColorModeValue('white', 'gray.800');
+  const questionRef = React.useRef<HTMLDivElement>(null);
 
   const currentQuestion = survey.item[currentQuestionIndex];
   const totalQuestions = survey.item.length;
@@ -69,15 +70,24 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Auto-focus first radio option when question changes
+  // Focus management when question changes
   React.useEffect(() => {
-    if (currentQuestion.type === 'boolean' || currentQuestion.type === 'choice') {
-      const firstRadio = document.querySelector('input[type="radio"]') as HTMLInputElement;
-      if (firstRadio) {
-        firstRadio.focus();
+    // Use a small delay to ensure the new question is rendered
+    const timer = setTimeout(() => {
+      if (questionRef.current) {
+        // Find the first interactive element within the question
+        const firstInteractive = questionRef.current.querySelector(
+          'input[type="radio"], input[type="checkbox"], input[type="text"], select, button'
+        ) as HTMLElement;
+        
+        if (firstInteractive) {
+          firstInteractive.focus();
+        }
       }
-    }
-  }, [currentQuestionIndex, currentQuestion.type]);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [currentQuestionIndex]);
 
   // Get the appropriate shortcut text based on platform
   const shortcutText = React.useMemo(() => {
@@ -108,6 +118,7 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
 
       {/* Question Container */}
       <Box
+        ref={questionRef}
         role="main"
         aria-live="polite"
         aria-atomic="true"
