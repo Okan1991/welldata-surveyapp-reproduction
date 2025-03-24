@@ -358,4 +358,81 @@ Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
-limitations under the License. 
+limitations under the License.
+
+# Solid Local Fresh
+
+A modern web application built with SolidJS and Chakra UI.
+
+## Features
+
+- Modern React-based UI with Chakra UI components
+- TypeScript for type safety
+- Survey functionality with multi-language support
+- Keyboard navigation for improved accessibility
+
+## Keyboard Navigation
+
+The application supports keyboard navigation for survey questions:
+
+- **Forward Navigation**: 
+  - Mac: `Command + Right Arrow`
+  - Windows/Linux: `Ctrl + Right Arrow`
+
+- **Backward Navigation**:
+  - Mac: `Command + Left Arrow`
+  - Windows/Linux: `Ctrl + Left Arrow`
+
+### Design Decisions
+
+The keyboard navigation system was designed with the following principles in mind:
+
+1. **Simplicity**: We chose to support only Command/Ctrl-based navigation to reduce cognitive load and make the interface more predictable.
+
+2. **Platform Conventions**: 
+   - Mac users use the Command key (⌘)
+   - Windows/Linux users use the Ctrl key
+   This aligns with platform-specific conventions and user expectations.
+
+3. **Spatial Navigation**: Using left/right arrows provides an intuitive spatial metaphor for navigation, making it easy to understand and remember.
+
+4. **Focus Management**: When navigating between questions, focus is automatically moved to the first interactive element of the new question, ensuring a smooth keyboard navigation experience.
+
+## Development
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+### Running the Application
+
+```bash
+npm run dev
+# or
+yarn dev
+```
+
+The application will be available at `http://localhost:5173`.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 
