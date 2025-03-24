@@ -5,11 +5,17 @@ import SurveyQuestion from './SurveyQuestion';
 import SurveyNavigation from './SurveyNavigation';
 import SurveyProgress from './SurveyProgress';
 import { translateSurvey } from '../../utils/language';
+import { deviceReference } from '../../fhir/device';
 
 interface SurveyContainerProps {
   survey: SurveyDefinition;
   currentLanguage: string;
   onComplete: (answers: any) => void;
+}
+
+interface AnswerMetadata {
+  value: any;
+  timestamp: string;
 }
 
 const SurveyContainer: React.FC<SurveyContainerProps> = ({
@@ -18,7 +24,7 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   onComplete,
 }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
-  const [answers, setAnswers] = React.useState<Record<string, any>>({});
+  const [answers, setAnswers] = React.useState<Record<string, AnswerMetadata>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [translatedSurvey, setTranslatedSurvey] = React.useState(() => translateSurvey(survey, currentLanguage));
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -34,8 +40,92 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   const totalQuestions = translatedSurvey.item.length;
 
   const handleAnswer = (questionId: string, answer: any) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answer }));
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: {
+        value: answer,
+        timestamp: new Date().toISOString()
+      }
+    }));
     setErrors(prev => ({ ...prev, [questionId]: '' }));
+  };
+
+  const generateFHIRDebugOutput = () => {
+    // First, create the Questionnaire resource
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: survey.id,
+      title: survey.title,
+      description: survey.description,
+      status: 'active',
+      item: survey.item.map(question => ({
+        linkId: question.linkId,
+        text: question.text,
+        type: question.type,
+        required: question.required,
+        answerOption: question.answerOption,
+        answerValueSet: question.answerValueSet
+      }))
+    };
+
+    // Then, create the QuestionnaireResponse resource
+    const questionnaireResponse = {
+      resourceType: 'QuestionnaireResponse',
+      id: `qr-${survey.id}-${new Date().toISOString()}`,
+      questionnaire: `Questionnaire/${survey.id}`,
+      status: 'in-progress',
+      authored: new Date().toISOString(),
+      source: deviceReference,
+      item: survey.item.map(question => {
+        const answerData = answers[question.linkId];
+        if (!answerData) return { linkId: question.linkId };
+
+        // Create the appropriate answer based on question type
+        let value;
+        switch (question.type) {
+          case 'boolean':
+            value = { valueBoolean: answerData.value };
+            break;
+          case 'text':
+            value = { valueString: answerData.value };
+            break;
+          case 'number':
+            value = { valueDecimal: answerData.value };
+            break;
+          case 'choice':
+          case 'snomed':
+            const selectedOption = question.answerOption?.find(
+              opt => opt.valueCoding?.[0]?.code === answerData.value
+            );
+            value = {
+              valueCoding: selectedOption?.valueCoding?.[0] || {
+                system: question.answerOption?.[0]?.valueCoding?.[0]?.system || '',
+                code: answerData.value,
+                display: selectedOption?.valueCoding?.[0]?.display || ''
+              }
+            };
+            break;
+          default:
+            value = { valueString: String(answerData.value) };
+        }
+
+        return {
+          linkId: question.linkId,
+          answer: [{
+            ...value,
+            extension: [{
+              url: 'http://hl7.org/fhir/StructureDefinition/questionnaireresponse-answer-time',
+              valueDateTime: answerData.timestamp
+            }]
+          }]
+        };
+      })
+    };
+
+    console.log('Survey Progress (FHIR Resources):', {
+      questionnaire,
+      questionnaireResponse
+    });
   };
 
   const handleNext = React.useCallback(() => {
@@ -49,14 +139,17 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
 
     if (currentQuestionIndex < totalQuestions - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
+      generateFHIRDebugOutput();
     } else {
+      generateFHIRDebugOutput();
       onComplete(answers);
     }
-  }, [currentQuestion, currentQuestionIndex, totalQuestions, answers, onComplete]);
+  }, [currentQuestion, currentQuestionIndex, totalQuestions, answers, onComplete, survey]);
 
   const handlePrevious = React.useCallback(() => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
+      generateFHIRDebugOutput();
     }
   }, [currentQuestionIndex]);
 
@@ -143,7 +236,7 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       >
         <SurveyQuestion
           question={currentQuestion}
-          answer={answers[currentQuestion.linkId]}
+          answer={answers[currentQuestion.linkId]?.value}
           error={errors[currentQuestion.linkId]}
           onAnswer={handleAnswer}
           language={currentLanguage}
