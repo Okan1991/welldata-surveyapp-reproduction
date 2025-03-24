@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Heading, Text, VStack, useColorModeValue, Text as ChakraText } from '@chakra-ui/react';
 import { SurveyDefinition } from '../../surveys/types';
 import SurveyQuestion from './SurveyQuestion';
@@ -6,16 +6,12 @@ import SurveyNavigation from './SurveyNavigation';
 import SurveyProgress from './SurveyProgress';
 import { translateSurvey } from '../../utils/language';
 import { deviceReference } from '../../fhir/device';
+import { FHIRQuestionnaireResponse, FHIRQuestionnaireResponseItem, FHIRValue } from '../../fhir/types';
 
 interface SurveyContainerProps {
   survey: SurveyDefinition;
   currentLanguage: string;
-  onComplete: (answers: any) => void;
-}
-
-interface AnswerMetadata {
-  value: any;
-  timestamp: string;
+  onComplete: (response: FHIRQuestionnaireResponse) => void;
 }
 
 const SurveyContainer: React.FC<SurveyContainerProps> = ({
@@ -23,15 +19,23 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   currentLanguage,
   onComplete,
 }) => {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
-  const [answers, setAnswers] = React.useState<Record<string, AnswerMetadata>>({});
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const [translatedSurvey, setTranslatedSurvey] = React.useState(() => translateSurvey(survey, currentLanguage));
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionnaireResponse, setQuestionnaireResponse] = useState<FHIRQuestionnaireResponse>({
+    resourceType: 'QuestionnaireResponse',
+    id: `qr-${survey.id}-${new Date().toISOString()}`,
+    questionnaire: `Questionnaire/${survey.id}`,
+    status: 'in-progress',
+    authored: new Date().toISOString(),
+    source: deviceReference,
+    item: []
+  });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [translatedSurvey, setTranslatedSurvey] = useState(() => translateSurvey(survey, currentLanguage));
   const bgColor = useColorModeValue('white', 'gray.800');
   const questionRef = React.useRef<HTMLDivElement>(null);
 
   // Update translations when language changes
-  React.useEffect(() => {
+  useEffect(() => {
     const newTranslatedSurvey = translateSurvey(survey, currentLanguage);
     setTranslatedSurvey(newTranslatedSurvey);
   }, [currentLanguage, survey]);
@@ -39,97 +43,127 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   const currentQuestion = translatedSurvey.item[currentQuestionIndex];
   const totalQuestions = translatedSurvey.item.length;
 
-  const handleAnswer = (questionId: string, answer: any) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: {
-        value: answer,
-        timestamp: new Date().toISOString()
-      }
-    }));
-    setErrors(prev => ({ ...prev, [questionId]: '' }));
+  const getFHIRValue = (value: any, type: string): FHIRValue => {
+    switch (type) {
+      case 'boolean':
+        return { valueBoolean: value };
+      case 'text':
+        return { valueString: value };
+      case 'number':
+        return { valueDecimal: value };
+      case 'choice':
+      case 'snomed':
+        const selectedOption = currentQuestion.answerOption?.find(
+          (opt: { valueCoding: Array<{ system: string; code: string; display: string }> }) => opt.valueCoding?.[0]?.code === value
+        );
+        return {
+          valueCoding: selectedOption?.valueCoding?.[0] || {
+            system: currentQuestion.answerOption?.[0]?.valueCoding?.[0]?.system || '',
+            code: value,
+            display: selectedOption?.valueCoding?.[0]?.display || ''
+          }
+        };
+      default:
+        return { valueString: String(value) };
+    }
   };
 
-  const generateFHIRDebugOutput = () => {
-    // First, create the Questionnaire resource
-    const questionnaire = {
-      resourceType: 'Questionnaire',
-      id: survey.id,
-      title: survey.title,
-      description: survey.description,
-      status: 'active',
-      item: survey.item.map(question => ({
-        linkId: question.linkId,
-        text: question.text,
-        type: question.type,
-        required: question.required,
-        answerOption: question.answerOption,
-        answerValueSet: question.answerValueSet
-      }))
-    };
-
-    // Then, create the QuestionnaireResponse resource
-    const questionnaireResponse = {
-      resourceType: 'QuestionnaireResponse',
-      id: `qr-${survey.id}-${new Date().toISOString()}`,
-      questionnaire: `Questionnaire/${survey.id}`,
-      status: 'in-progress',
-      authored: new Date().toISOString(),
-      source: deviceReference,
-      item: survey.item.map(question => {
-        const answerData = answers[question.linkId];
-        if (!answerData) return { linkId: question.linkId };
-
-        // Create the appropriate answer based on question type
-        let value;
-        switch (question.type) {
-          case 'boolean':
-            value = { valueBoolean: answerData.value };
-            break;
-          case 'text':
-            value = { valueString: answerData.value };
-            break;
-          case 'number':
-            value = { valueDecimal: answerData.value };
-            break;
-          case 'choice':
-          case 'snomed':
-            const selectedOption = question.answerOption?.find(
-              opt => opt.valueCoding?.[0]?.code === answerData.value
-            );
-            value = {
-              valueCoding: selectedOption?.valueCoding?.[0] || {
-                system: question.answerOption?.[0]?.valueCoding?.[0]?.system || '',
-                code: answerData.value,
-                display: selectedOption?.valueCoding?.[0]?.display || ''
-              }
-            };
-            break;
-          default:
-            value = { valueString: String(answerData.value) };
+  const insertAnswerWithTimestamp = (newItem: FHIRQuestionnaireResponseItem) => {
+    const timestamp = new Date(newItem.answer[0].extension?.[0].valueDateTime || '').getTime();
+    
+    setQuestionnaireResponse(prev => {
+      const newItems = [...prev.item];
+      let insertIndex = 0;
+      
+      // Find the correct position based on timestamp
+      while (insertIndex < newItems.length) {
+        const existingTimestamp = new Date(newItems[insertIndex].answer[0].extension?.[0].valueDateTime || '').getTime();
+        if (timestamp < existingTimestamp) {
+          break;
         }
-
-        return {
-          linkId: question.linkId,
-          answer: [{
-            ...value,
-            extension: [{
-              url: 'http://hl7.org/fhir/StructureDefinition/questionnaireresponse-answer-time',
-              valueDateTime: answerData.timestamp
-            }]
-          }]
-        };
-      })
-    };
-
-    console.log('Survey Progress (FHIR Resources):', {
-      questionnaire,
-      questionnaireResponse
+        insertIndex++;
+      }
+      
+      // Insert the new item at the correct position
+      newItems.splice(insertIndex, 0, newItem);
+      
+      return {
+        ...prev,
+        item: newItems
+      };
     });
   };
 
-  const handleNext = React.useCallback(() => {
-    if (currentQuestion.required && !answers[currentQuestion.linkId]) {
+  const handleAnswer = (questionId: string, value: any) => {
+    const timestamp = new Date().toISOString();
+    const fhirValue = getFHIRValue(value, currentQuestion.type);
+    
+    setQuestionnaireResponse(prev => {
+      // Remove any existing answer for this question
+      const filteredItems = prev.item.filter(item => item.linkId !== questionId);
+      
+      // Create new answer item
+      const newItem: FHIRQuestionnaireResponseItem = {
+        linkId: questionId,
+        answer: [{
+          value: fhirValue,
+          extension: [{
+            url: 'http://hl7.org/fhir/StructureDefinition/questionnaireresponse-answer-time',
+            valueDateTime: timestamp
+          }]
+        }]
+      };
+
+      // Insert new answer at the correct position based on timestamp
+      const newItems = [...filteredItems];
+      let insertIndex = 0;
+      
+      while (insertIndex < newItems.length) {
+        const existingTimestamp = new Date(newItems[insertIndex].answer[0].extension?.[0].valueDateTime || '').getTime();
+        const newTimestamp = new Date(timestamp).getTime();
+        if (newTimestamp < existingTimestamp) {
+          break;
+        }
+        insertIndex++;
+      }
+      
+      newItems.splice(insertIndex, 0, newItem);
+      
+      const updatedResponse = {
+        ...prev,
+        item: newItems
+      };
+
+      // Debug output when answer is submitted or updated
+      console.log('Survey State Update:', {
+        questionnaire: {
+          resourceType: 'Questionnaire',
+          id: survey.id,
+          title: translatedSurvey.title,
+          description: translatedSurvey.description,
+          status: 'active',
+          item: translatedSurvey.item.map(item => ({
+            linkId: item.linkId,
+            text: item.text,
+            type: item.type,
+            required: item.required,
+            answerOption: item.answerOption,
+            validation: item.validation
+          }))
+        },
+        questionnaireResponse: updatedResponse
+      });
+
+      return updatedResponse;
+    });
+
+    setErrors(prev => ({ ...prev, [questionId]: '' }));
+  };
+
+  const handleNext = () => {
+    const currentAnswer = questionnaireResponse.item.find(item => item.linkId === currentQuestion.linkId);
+    
+    if (currentQuestion.required && !currentAnswer) {
       setErrors(prev => ({
         ...prev,
         [currentQuestion.linkId]: 'This question is required',
@@ -139,22 +173,20 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
 
     if (currentQuestionIndex < totalQuestions - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
-      generateFHIRDebugOutput();
     } else {
-      generateFHIRDebugOutput();
-      onComplete(answers);
+      setQuestionnaireResponse(prev => ({ ...prev, status: 'completed' }));
+      onComplete(questionnaireResponse);
     }
-  }, [currentQuestion, currentQuestionIndex, totalQuestions, answers, onComplete, survey]);
+  };
 
-  const handlePrevious = React.useCallback(() => {
+  const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
-      generateFHIRDebugOutput();
     }
-  }, [currentQuestionIndex]);
+  };
 
   // Handle keyboard navigation
-  const handleKeyDown = React.useCallback((event: KeyboardEvent) => {
+  const handleKeyDown = (event: KeyboardEvent) => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const modifierKey = isMac ? event.metaKey : event.ctrlKey;
     
@@ -166,16 +198,16 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       event.preventDefault();
       handleNext();
     }
-  }, [handleNext, handlePrevious]);
+  };
 
   // Add and remove keyboard event listener
-  React.useEffect(() => {
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
   // Focus management when question changes
-  React.useEffect(() => {
+  useEffect(() => {
     // Use a small delay to ensure the new question is rendered
     const timer = setTimeout(() => {
       if (questionRef.current) {
@@ -236,7 +268,24 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       >
         <SurveyQuestion
           question={currentQuestion}
-          answer={answers[currentQuestion.linkId]?.value}
+          answer={(() => {
+            const currentAnswer = questionnaireResponse.item.find(item => item.linkId === currentQuestion.linkId);
+            if (!currentAnswer) return null;
+            
+            switch (currentQuestion.type) {
+              case 'boolean':
+                return currentAnswer.answer[0].value.valueBoolean;
+              case 'choice':
+              case 'snomed':
+                return currentAnswer.answer[0].value.valueCoding?.code;
+              case 'text':
+                return currentAnswer.answer[0].value.valueString;
+              case 'number':
+                return currentAnswer.answer[0].value.valueDecimal;
+              default:
+                return null;
+            }
+          })()}
           error={errors[currentQuestion.linkId]}
           onAnswer={handleAnswer}
           language={currentLanguage}

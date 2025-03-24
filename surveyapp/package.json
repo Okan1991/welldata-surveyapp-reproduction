@@ -16,9 +16,11 @@
     "@inrupt/solid-client": "^2.1.2",
     "@inrupt/solid-client-authn-browser": "^2.3.0",
     "@solid/community-server": "^7.0.2",
+    "@types/react-i18next": "^7.8.3",
     "framer-motion": "^11.18.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-i18next": "^15.4.1",
     "react-router-dom": "^6.30.0"
   },
   "devDependencies": {
