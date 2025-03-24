@@ -4,6 +4,7 @@ import { SurveyDefinition } from '../../surveys/types';
 import SurveyQuestion from './SurveyQuestion';
 import SurveyNavigation from './SurveyNavigation';
 import SurveyProgress from './SurveyProgress';
+import { translateSurvey } from '../../utils/language';
 
 interface SurveyContainerProps {
   survey: SurveyDefinition;
@@ -19,11 +20,18 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
   const [answers, setAnswers] = React.useState<Record<string, any>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [translatedSurvey, setTranslatedSurvey] = React.useState(() => translateSurvey(survey, currentLanguage));
   const bgColor = useColorModeValue('white', 'gray.800');
   const questionRef = React.useRef<HTMLDivElement>(null);
 
-  const currentQuestion = survey.item[currentQuestionIndex];
-  const totalQuestions = survey.item.length;
+  // Update translations when language changes
+  React.useEffect(() => {
+    const newTranslatedSurvey = translateSurvey(survey, currentLanguage);
+    setTranslatedSurvey(newTranslatedSurvey);
+  }, [currentLanguage, survey]);
+
+  const currentQuestion = translatedSurvey.item[currentQuestionIndex];
+  const totalQuestions = translatedSurvey.item.length;
 
   const handleAnswer = (questionId: string, answer: any) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }));
@@ -104,11 +112,11 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       {/* Survey Header */}
       <Box role="banner">
         <Heading as="h1" size="xl" mb={4}>
-          {survey.title}
+          {translatedSurvey.title}
         </Heading>
-        {survey.description && (
+        {translatedSurvey.description && (
           <Text fontSize="lg" color="gray.600">
-            {survey.description}
+            {translatedSurvey.description}
           </Text>
         )}
       </Box>
