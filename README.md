@@ -44,7 +44,6 @@ Each of these apps had **existing functionalities** before the construction of t
 ```mermaid
 graph TD;
     subgraph UserPod[User's SOLID Pod]
-
         subgraph OtherPods[Other Pods]
             TaxData[Tax Data]
             EnergyData[Energy Data]
@@ -80,13 +79,8 @@ graph TD;
     Citizen[Citizen] -->|Controls| Bibopp
 
     Selfcare[Selfcare App] -->|Reads/Writes| WellDataPod
-    
-
     Zipster[Zipster App] -->|Reads/Writes| WellDataPod
-    
-
     Bibopp[Bibopp App] -->|Reads/Writes| WellDataPod
-    
 
     PolicyMakers[Policy Makers] -->|Benchmark| PublicPortals
     Researchers[Researchers] -->|Consult| ProtectedResearchDatabases
@@ -103,53 +97,18 @@ graph TD;
 - **Secondary Use (Future Feature)**:
   - **Policy Makers** and **Researchers** may access **aggregated, user-controlled data** that is derived and then stored elsewhere.
 
-
-## Author
-
-**Pieter Van Gorp**
-- GitHub: [@pvgorp](https://github.com/pvgorp)
-
-## Features
-
-- User authentication with OpenID Connect
-- Container management (create, list, delete)
-- File management within containers (create, list, delete)
-- RDF-based file metadata using Dublin Core Terms vocabulary
-- Modern, responsive UI
-
-## Documentation
-
-### Project Documentation
-- [README.md](README.md) - This file, containing setup and usage instructions
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Solutions for common issues
-- [docs/SERVER_PERSISTENCE.md](docs/SERVER_PERSISTENCE.md) - Information about server data persistence
-
-### Application-Specific Documentation
-
-#### SolidJS File Manager (app)
-A very generic front-end for managing containers/files in a SOLID Pod.
-
-- [app/README.md](app/README.md) - Setup and usage instructions for the SolidJS application
-- [app/docs/COMPONENTS.md](app/docs/COMPONENTS.md) - Overview of key components and their interactions
-- [app/docs/TECHNICAL_DETAILS.md](app/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
-
-#### Extended version of app1, with some preliminary support to manage FHIR plans (app2)
-- [app2/README.md](app2/README.md) - Setup and usage instructions for the React Chakra UI application
-- [app2/docs/COMPONENTS.md](app2/docs/COMPONENTS.md) - Overview of key components and their interactions
-- [app2/docs/TECHNICAL_DETAILS.md](app2/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
-
-#### WellData Health Data Space Reference App (welldata)
-- [welldata/README.md](welldata/README.md) - Setup and usage instructions for the WellData application
-- [welldata/docs/COMPONENTS.md](welldata/docs/COMPONENTS.md) - Overview of key components and their interactions
-- [welldata/docs/TECHNICAL_DETAILS.md](welldata/docs/TECHNICAL_DETAILS.md) - Detailed technical implementation
-
 ## Project Structure
+
+This project contains several applications that demonstrate different aspects of SOLID technology and the WellData ecosystem:
 
 - `/` - Root directory containing the SOLID server configuration
 - `/app` - SolidJS application for managing files in a SOLID pod
 - `/app2` - Alternative React application with Chakra UI
 - `/welldata` - WellData application for managing health data in a SOLID pod
+- `/surveyapp` - Health survey application for collecting user health data
 - `/scripts` - Utility scripts for managing client registrations and authentication
+
+Each application has its own README with detailed information about its features, setup, and usage.
 
 ## Setup
 
@@ -158,20 +117,11 @@ A very generic front-end for managing containers/files in a SOLID Pod.
 # Install server dependencies
 npm install
 
-# Install first web app dependencies
-cd app
-npm install
-cd ..
-
-# Install second web app dependencies
-cd app2
-npm install
-cd ..
-
-# Install welldata app dependencies
-cd welldata
-npm install
-cd ..
+# Install app dependencies
+cd app && npm install && cd ..
+cd app2 && npm install && cd ..
+cd welldata && npm install && cd ..
+cd surveyapp && npm install && cd ..
 ```
 
 2. Start all components (server and all apps):
@@ -180,29 +130,23 @@ npm run dev
 ```
 
 Alternatively, you can start components individually:
-
 ```bash
-# Start the SOLID server
-npm run start:server
-
-# Start the first web application
-npm run dev:app1
-
-# Start the second web application
-npm run dev:app2
-
-# Start the welldata application
-npm run dev:welldata
+npm run start:server  # Start the SOLID server
+npm run dev:app1     # Start the first web application
+npm run dev:app2     # Start the second web application
+npm run dev:welldata # Start the welldata application
+npm run dev:survey   # Start the survey application
 ```
 
 3. Access the applications:
    - First app: http://localhost:5173
    - Second app: http://localhost:5174
    - WellData app: http://localhost:5175
+   - Survey app: http://localhost:5176
 
 ## Demo Applications Overview
 
-This project showcases three different applications that can interact with the same Solid Pod, demonstrating the interoperability of Solid applications. The primary focus is on the WellData application, with the other two applications serving as simpler demonstrations of Solid Pod interaction:
+This project showcases four different applications that can interact with the same Solid Pod, demonstrating the interoperability of Solid applications. The primary focus is on the WellData application, with the other applications serving as demonstrations of Solid Pod interaction:
 
 ### 1. SolidJS File Manager (app)
 A file manager built with SolidJS that provides basic file and container management functionality. This application demonstrates:
@@ -224,6 +168,14 @@ The primary application in this project, designed to enable citizens to manage t
 - Creating WebIDs for containers
 - More advanced Solid features
 
+### 4. Health Survey Application (surveyapp)
+A specialized application for collecting health-related survey data from users. This application demonstrates:
+- FHIR-compliant survey structure implementation
+- Multi-language support for surveys
+- Accessibility-first design principles
+- Integration with Solid pod for survey data storage
+- Modern UI with Chakra UI components
+
 The WellData application represents a prototype implementation of a European Health Data Space focused on preventive health. It aims to create a citizen-centric health data ecosystem where:
 1. Citizens have full control over their preventive health data
 2. Data can be shared across multiple health applications without duplication
@@ -234,18 +186,18 @@ The WellData application represents a prototype implementation of a European Hea
 - **Personal Health Goals Management**: Interface for users to add and manage personal health goals
 - **Connected App Ecosystem**: Integration with existing health applications like Selfcare, Zipster, and Bibopp
 
-The first two applications (SolidJS File Manager and React Chakra UI Pod Manager) serve as simpler demonstrations of Solid Pod interaction, providing a foundation for understanding how the more complex WellData application works.
+The other applications serve as demonstrations of Solid Pod interaction, providing a foundation for understanding how the more complex WellData application works.
 
 ## Testing Multiple Applications with the Same Pod
 
-This project demonstrates how multiple applications can authenticate and access the same Solid Pod, which is a key feature of the Solid ecosystem. All three applications use the same local WebID and Pod, but have completely different user interfaces and functionality.
+This project demonstrates how multiple applications can authenticate and access the same Solid Pod, which is a key feature of the Solid ecosystem. All four applications use the same local WebID and Pod, but have completely different user interfaces and functionality.
 
 To test this functionality:
 
 1. Start all applications and the Solid server
 2. Create a test account and Pod on the local Solid server
 3. Log in to all applications using the same WebID
-4. Make changes in one application (e.g., create a container)
+4. Make changes in one application (e.g., create a container or complete a survey)
 5. Observe that the changes are visible in the other applications
 
 This demonstrates the interoperability of Solid applications and how users can control their data while using multiple applications.
@@ -360,79 +312,21 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-# Solid Local Fresh
+## Documentation
 
-A modern web application built with SolidJS and Chakra UI.
+### Project Documentation
+- [README.md](README.md) - This file, containing setup and usage instructions
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Solutions for common issues
+- [docs/SERVER_PERSISTENCE.md](docs/SERVER_PERSISTENCE.md) - Information about server data persistence
 
-## Features
+### Application-Specific Documentation
+Each application has its own documentation in its respective directory:
+- [app/README.md](app/README.md) - SolidJS File Manager
+- [app2/README.md](app2/README.md) - React Chakra UI Pod Manager
+- [welldata/README.md](welldata/README.md) - WellData Health Application
+- [surveyapp/README.md](surveyapp/README.md) - Health Survey Application
 
-- Modern React-based UI with Chakra UI components
-- TypeScript for type safety
-- Survey functionality with multi-language support
-- Keyboard navigation for improved accessibility
+## Author
 
-## Keyboard Navigation
-
-The application supports keyboard navigation for survey questions:
-
-- **Forward Navigation**: 
-  - Mac: `Command + Right Arrow`
-  - Windows/Linux: `Ctrl + Right Arrow`
-
-- **Backward Navigation**:
-  - Mac: `Command + Left Arrow`
-  - Windows/Linux: `Ctrl + Left Arrow`
-
-### Design Decisions
-
-The keyboard navigation system was designed with the following principles in mind:
-
-1. **Simplicity**: We chose to support only Command/Ctrl-based navigation to reduce cognitive load and make the interface more predictable.
-
-2. **Platform Conventions**: 
-   - Mac users use the Command key (⌘)
-   - Windows/Linux users use the Ctrl key
-   This aligns with platform-specific conventions and user expectations.
-
-3. **Spatial Navigation**: Using left/right arrows provides an intuitive spatial metaphor for navigation, making it easy to understand and remember.
-
-4. **Focus Management**: When navigating between questions, focus is automatically moved to the first interactive element of the new question, ensuring a smooth keyboard navigation experience.
-
-## Development
-
-### Prerequisites
-
-- Node.js (v14 or higher)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-### Running the Application
-
-```bash
-npm run dev
-# or
-yarn dev
-```
-
-The application will be available at `http://localhost:5173`.
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+**Pieter Van Gorp**
+- GitHub: [@pvgorp](https://github.com/pvgorp) 
