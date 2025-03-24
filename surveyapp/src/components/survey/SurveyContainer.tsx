@@ -46,23 +46,26 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
     }
   }, [currentQuestion, currentQuestionIndex, totalQuestions, answers, onComplete]);
 
-  const handlePrevious = () => {
+  const handlePrevious = React.useCallback(() => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
     }
-  };
+  }, [currentQuestionIndex]);
 
   // Handle keyboard navigation
   const handleKeyDown = React.useCallback((event: KeyboardEvent) => {
-    // Check for Command+Enter (Mac) or Ctrl+Enter (Windows/Linux)
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const modifierKey = isMac ? event.metaKey : event.ctrlKey;
     
-    if (event.key === 'Enter' && modifierKey) {
+    // Handle arrow key navigation with Command/Ctrl modifier
+    if ((event.key === 'ArrowLeft' || event.key === 'Backspace') && modifierKey) {
+      event.preventDefault();
+      handlePrevious();
+    } else if ((event.key === 'ArrowRight' || event.key === 'Enter') && modifierKey) {
       event.preventDefault();
       handleNext();
     }
-  }, [handleNext]);
+  }, [handleNext, handlePrevious]);
 
   // Add and remove keyboard event listener
   React.useEffect(() => {
@@ -92,7 +95,8 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   // Get the appropriate shortcut text based on platform
   const shortcutText = React.useMemo(() => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    return isMac ? '⌘ + Enter' : 'Ctrl + Enter';
+    const modifier = isMac ? '⌘' : 'Ctrl';
+    return `${modifier} + → (or ${modifier} + ↵) to continue, ${modifier} + ← (or ${modifier} + ⌫) to go back`;
   }, []);
 
   return (
@@ -144,9 +148,9 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
           mt={4}
           textAlign="center"
           role="note"
-          aria-label={`Press ${shortcutText} to continue`}
+          aria-label={`Use ${shortcutText} for navigation`}
         >
-          Press {shortcutText} to continue
+          {shortcutText}
         </ChakraText>
       </Box>
 
