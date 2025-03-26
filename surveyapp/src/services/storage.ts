@@ -4,6 +4,8 @@ import { FHIRQuestionnaireResponse } from '../fhir/types';
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
 import { createSolidDataset, saveSolidDatasetAt, getSolidDataset } from '@inrupt/solid-client';
 import { fetch } from '@inrupt/solid-client-authn-browser';
+import { getUrl } from '@inrupt/solid-client';
+import { RDF_NAMESPACE, FHIR_NAMESPACE } from '../fhir/namespaces';
 
 export interface StorageServiceConfig {
   solidPodUrl: string;
@@ -52,12 +54,85 @@ export class StorageService {
       const surveyUrl = await this.ensureSurveyContainer();
       const responsesUrl = `${surveyUrl}responses/`;
 
-      // Convert the response to RDF
-      const rdfData = ConversionService.jsonToRdf(response);
-
       // Save the response to the responses container
       const responseUrl = `${responsesUrl}${response.id}.ttl`;
-      await saveSolidDatasetAt(responseUrl, rdfData, { fetch });
+      console.log('Attempting to store at:', responseUrl);
+
+      // Convert the response to RDF
+      const rdfData = ConversionService.jsonToRdf(response, responseUrl);
+      console.log('Converting to RDF:', {
+        response,
+        rdfData: JSON.stringify(rdfData, null, 2),
+        defaultGraph: JSON.stringify(rdfData.graphs.default, null, 2),
+        thingCount: Object.keys(rdfData.graphs.default).length,
+        things: Object.keys(rdfData.graphs.default).map(id => ({
+          id,
+          type: getUrl(rdfData.graphs.default[id], RDF_NAMESPACE('type')),
+          partOf: getUrl(rdfData.graphs.default[id], FHIR_NAMESPACE('partOf'))
+        }))
+      });
+      
+      try {
+        // Try to get the existing dataset first
+        const existingDataset = await getSolidDataset(responseUrl, { fetch });
+        console.log('Found existing dataset:', {
+          url: existingDataset.internal_resourceInfo.sourceIri,
+          graphs: Object.keys(existingDataset.graphs),
+          defaultGraph: JSON.stringify(existingDataset.graphs.default, null, 2),
+          thingCount: Object.keys(existingDataset.graphs.default).length,
+          things: Object.keys(existingDataset.graphs.default).map(id => ({
+            id,
+            type: getUrl(existingDataset.graphs.default[id], RDF_NAMESPACE('type')),
+            partOf: getUrl(existingDataset.graphs.default[id], FHIR_NAMESPACE('partOf'))
+          }))
+        });
+        
+        // Merge the new data with the existing dataset
+        const mergedDataset = {
+          ...existingDataset,
+          graphs: {
+            ...existingDataset.graphs,
+            default: {
+              ...existingDataset.graphs.default,
+              ...rdfData.graphs.default
+            }
+          }
+        };
+        
+        // Save the merged dataset
+        await saveSolidDatasetAt(responseUrl, mergedDataset, { fetch });
+        console.log('Successfully updated existing dataset with merged structure:', {
+          url: mergedDataset.internal_resourceInfo.sourceIri,
+          graphs: Object.keys(mergedDataset.graphs),
+          defaultGraph: JSON.stringify(mergedDataset.graphs.default, null, 2),
+          thingCount: Object.keys(mergedDataset.graphs.default).length,
+          things: Object.keys(mergedDataset.graphs.default).map(id => ({
+            id,
+            type: getUrl(mergedDataset.graphs.default[id], RDF_NAMESPACE('type')),
+            partOf: getUrl(mergedDataset.graphs.default[id], FHIR_NAMESPACE('partOf'))
+          }))
+        });
+      } catch (error: any) {
+        // If the error is 404, the dataset doesn't exist yet, so we can create it
+        if (error.statusCode === 404) {
+          console.log('No existing dataset found, creating new one with structure:', {
+            url: responseUrl,
+            graphs: Object.keys(rdfData.graphs),
+            defaultGraph: JSON.stringify(rdfData.graphs.default, null, 2),
+            thingCount: Object.keys(rdfData.graphs.default).length,
+            things: Object.keys(rdfData.graphs.default).map(id => ({
+              id,
+              type: getUrl(rdfData.graphs.default[id], RDF_NAMESPACE('type')),
+              partOf: getUrl(rdfData.graphs.default[id], FHIR_NAMESPACE('partOf'))
+            }))
+          });
+          await saveSolidDatasetAt(responseUrl, rdfData, { fetch });
+          console.log('Successfully created new dataset');
+        } else {
+          // For any other error, rethrow it
+          throw error;
+        }
+      }
 
       return true;
     } catch (error) {

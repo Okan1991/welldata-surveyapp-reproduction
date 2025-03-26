@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
-import { Box, useToast } from '@chakra-ui/react';
+import { Box, Heading, Text, VStack, useColorModeValue, Text as ChakraText } from '@chakra-ui/react';
 import { FHIRQuestionnaire, FHIRQuestionnaireResponse, FHIRAnswer } from '../../fhir/types';
 import { StorageService } from '../../services/storage';
 import { PodService } from '../../services/podService';
@@ -37,9 +37,9 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [translatedSurvey, setTranslatedSurvey] = useState(survey);
-  const toast = useToast();
-
+  const bgColor = useColorModeValue('white', 'gray.800');
   const containerRef = useRef<HTMLDivElement>(null);
+
   const { handleKeyDown: handleKeyboardNav } = useKeyboardNavigation({
     onNext: () => handleNext(),
     onPrevious: () => handlePrevious(),
@@ -127,13 +127,6 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
 
   const handleNext = async () => {
     if (!validateCurrentQuestion()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please answer the required question before proceeding.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
       return;
     }
 
@@ -155,13 +148,8 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
     }
 
-    console.log('Debug - Pod URL:', podUrl);
-    console.log('Debug - WebID:', session.info.webId);
-    console.log('Debug - Survey ID:', survey.id);
-
     // Create the questionnaire URL in metadata/surveys/definitions
     const questionnaireUrl = `${podUrl}welldata/metadata/surveys/definitions/${survey.id}.ttl`;
-    console.log('Debug - Constructed Questionnaire URL:', questionnaireUrl);
 
     // Store current page response before proceeding
     try {
@@ -175,42 +163,13 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
         )
       };
       
-      console.log('Debug - Current Page Response:', {
-        id: currentPageResponse.id,
-        questionnaire: currentPageResponse.questionnaire,
-        status: currentPageResponse.status,
-        itemCount: currentPageResponse.item.length
-      });
-      
       const stored = await storageService.storeResponse(currentPageResponse);
       if (!stored) {
-        console.error('Debug - Failed to store current page response');
-        toast({
-          title: 'Storage Error',
-          description: 'Failed to store current page. Please try again.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
+        console.error('Failed to store current page response');
         return;
       }
-      console.log('Debug - Successfully stored current page response');
     } catch (error) {
-      console.error('Debug - Error storing current page:', error);
-      if (error instanceof Error) {
-        console.error('Debug - Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-      }
-      toast({
-        title: 'Error',
-        description: 'An error occurred while saving your responses. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+      console.error('Error storing current page:', error);
       return;
     }
 
@@ -221,42 +180,20 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       const completedResponse = {
         ...response,
         status: 'completed' as const,
-        questionnaire: questionnaireUrl // Use the same URL for the completed response
+        questionnaire: questionnaireUrl
       };
 
       try {
         // Store the response
         const stored = await storageService.storeResponse(completedResponse);
         if (!stored) {
-          toast({
-            title: 'Storage Error',
-            description: 'Failed to store survey response. Please try again.',
-            status: 'error',
-            duration: 5000,
-            isClosable: true,
-          });
           return;
         }
 
         // Call onComplete callback
         onComplete(completedResponse);
-
-        toast({
-          title: 'Survey Completed',
-          description: 'Your responses have been saved successfully.',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
       } catch (error) {
         console.error('Error completing survey:', error);
-        toast({
-          title: 'Error',
-          description: 'An error occurred while saving your responses. Please try again.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
       }
     }
   };
@@ -270,30 +207,82 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
   const currentQuestion = translatedSurvey.item[currentQuestionIndex];
   const currentAnswer = response.item.find(item => item.linkId === currentQuestion?.linkId);
 
-  return (
-    <Box
-      ref={containerRef}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      outline="none"
-      p={4}
-    >
-      {currentQuestion && (
-        <QuestionRenderer
-          question={currentQuestion}
-          answer={currentAnswer?.answer[0]}
-          onAnswer={(answer: FHIRAnswer) => handleAnswer(currentQuestion.linkId, answer)}
-          error={errors[currentQuestion.linkId]}
-        />
-      )}
+  // Get the appropriate shortcut text based on platform
+  const shortcutText = React.useMemo(() => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const modifier = isMac ? '⌘' : 'Ctrl';
+    return `${modifier} + → (or ${modifier} + ↵) to continue, ${modifier} + ← (or ${modifier} + ⌫) to go back`;
+  }, []);
 
-      <NavigationButtons
-        currentIndex={currentQuestionIndex}
-        totalQuestions={translatedSurvey.item.length}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-      />
-    </Box>
+  return (
+    <VStack spacing={8} align="stretch" minH="calc(100vh - 200px)">
+      {/* Survey Header */}
+      <Box role="banner">
+        <Heading as="h1" size="xl" mb={4}>
+          {translatedSurvey.title}
+        </Heading>
+        {translatedSurvey.description && (
+          <Text fontSize="lg" color="gray.600">
+            {translatedSurvey.description}
+          </Text>
+        )}
+      </Box>
+
+      {/* Question Container */}
+      <Box
+        ref={containerRef}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        outline="none"
+        role="main"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label={`Question ${currentQuestionIndex + 1} of ${translatedSurvey.item.length}`}
+        flex={1}
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        minH="400px"
+      >
+        {currentQuestion && (
+          <QuestionRenderer
+            question={currentQuestion}
+            answer={currentAnswer?.answer[0]}
+            onAnswer={(answer: FHIRAnswer) => handleAnswer(currentQuestion.linkId, answer)}
+            error={errors[currentQuestion.linkId]}
+          />
+        )}
+        
+        {/* Keyboard Shortcut Hint */}
+        <ChakraText
+          fontSize="sm"
+          color="gray.500"
+          mt={4}
+          textAlign="center"
+          role="note"
+          aria-label={`Use ${shortcutText} for navigation`}
+        >
+          {shortcutText}
+        </ChakraText>
+      </Box>
+
+      {/* Navigation */}
+      <Box
+        position="sticky"
+        bottom={0}
+        bg={bgColor}
+        py={4}
+        borderTop="1px"
+        borderColor="gray.200"
+      >
+        <NavigationButtons
+          currentIndex={currentQuestionIndex}
+          totalQuestions={translatedSurvey.item.length}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+        />
+      </Box>
+    </VStack>
   );
 };
 

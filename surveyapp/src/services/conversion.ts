@@ -23,15 +23,22 @@ export class ConversionService {
   /**
    * Converts a FHIR QuestionnaireResponse from JSON to RDF
    * @param response The FHIR QuestionnaireResponse in JSON format
+   * @param responseUrl The URL of the response
    * @returns The RDF representation as a string
    */
-  public static jsonToRdf(response: FHIRQuestionnaireResponse): any {
+  public static jsonToRdf(response: FHIRQuestionnaireResponse, responseUrl: string): any {
     if (!ConversionService.validateResponse(response)) {
       throw new Error('Invalid questionnaire response');
     }
 
+    console.log('Starting RDF conversion with:', {
+      responseId: response.id,
+      responseUrl,
+      itemCount: response.item.length
+    });
+
     // Create a new dataset
-    const dataset = createSolidDataset();
+    let dataset = createSolidDataset();
 
     // Create the main response thing
     const responseThing = buildThing(createThing({ name: response.id }))
@@ -42,20 +49,49 @@ export class ConversionService {
       .addDatetime(FHIR_NAMESPACE('authored'), new Date(response.authored))
       .build();
 
-    // Add the response thing to the dataset
-    const updatedDataset = setThing(dataset, responseThing);
+    console.log('Created response thing:', {
+      id: getStringNoLocale(responseThing, FHIR_NAMESPACE('id')),
+      type: getUrl(responseThing, RDF_NAMESPACE('type')),
+      questionnaire: getUrl(responseThing, FHIR_NAMESPACE('questionnaire')),
+      status: getStringNoLocale(responseThing, FHIR_NAMESPACE('status'))
+    });
 
-    // Add each item as a separate thing
-    response.item.forEach((item: FHIRQuestionnaireResponseItem) => {
+    // Add the response thing to the dataset
+    dataset = setThing(dataset, responseThing);
+
+    // Add each item as a separate thing and link it to the response
+    response.item.forEach((item: FHIRQuestionnaireResponseItem, itemIndex: number) => {
+      console.log(`Processing item ${itemIndex + 1}/${response.item.length}:`, {
+        linkId: item.linkId,
+        answerCount: item.answer.length
+      });
+
       const itemThing = buildThing(createThing({ name: `${response.id}-${item.linkId}` }))
         .addUrl(RDF_NAMESPACE('type'), FHIR_NAMESPACE('QuestionnaireResponseItem'))
         .addStringNoLocale(FHIR_NAMESPACE('linkId'), item.linkId)
+        .addUrl(FHIR_NAMESPACE('partOf'), responseUrl)
         .build();
 
+      console.log('Created item thing:', {
+        linkId: getStringNoLocale(itemThing, FHIR_NAMESPACE('linkId')),
+        type: getUrl(itemThing, RDF_NAMESPACE('type')),
+        partOf: getUrl(itemThing, FHIR_NAMESPACE('partOf'))
+      });
+
+      // Add the item thing to the dataset first
+      dataset = setThing(dataset, itemThing);
+
       // Add answer values
-      item.answer.forEach((answer, index) => {
-        let answerBuilder = buildThing(createThing({ name: `${response.id}-${item.linkId}-answer-${index}` }))
-          .addUrl(RDF_NAMESPACE('type'), FHIR_NAMESPACE('Answer'));
+      item.answer.forEach((answer, answerIndex) => {
+        const valueType = Object.keys(answer).find(key => key.startsWith('value'));
+        console.log(`Processing answer ${answerIndex + 1}/${item.answer.length} for item ${item.linkId}:`, {
+          valueType,
+          value: valueType ? answer[valueType as keyof typeof answer] : undefined
+        });
+
+        let answerBuilder = buildThing(createThing({ name: `${response.id}-${item.linkId}-answer-${answerIndex}` }))
+          .addUrl(RDF_NAMESPACE('type'), FHIR_NAMESPACE('Answer'))
+          .addUrl(FHIR_NAMESPACE('partOf'), `${responseUrl}#${response.id}-${item.linkId}`);
 
         // Add value based on type
         if (answer.valueBoolean !== undefined) {
@@ -71,7 +107,11 @@ export class ConversionService {
           answerBuilder = answerBuilder.addDecimal(FHIR_NAMESPACE('valueDecimal'), answer.valueDecimal);
         }
         if (answer.valueCoding !== undefined) {
-          answerBuilder = answerBuilder.addUrl(FHIR_NAMESPACE('valueCoding'), answer.valueCoding.code);
+          // For SNOMED codes, we need to prepend the SNOMED CT system URL
+          const codeUrl = answer.valueCoding.system === 'http://snomed.info/sct' 
+            ? `http://snomed.info/sct/${answer.valueCoding.code}`
+            : answer.valueCoding.code;
+          answerBuilder = answerBuilder.addUrl(FHIR_NAMESPACE('valueCoding'), codeUrl);
         }
 
         // Add timestamp if available
@@ -82,15 +122,31 @@ export class ConversionService {
           );
         }
 
-        // Build and add the answer thing to the dataset
-        setThing(updatedDataset, answerBuilder.build());
-      });
+        const answerThing = answerBuilder.build();
+        console.log('Created answer thing:', {
+          type: getUrl(answerThing, RDF_NAMESPACE('type')),
+          partOf: getUrl(answerThing, FHIR_NAMESPACE('partOf')),
+          valueBoolean: getBoolean(answerThing, FHIR_NAMESPACE('valueBoolean')),
+          valueString: getStringNoLocale(answerThing, FHIR_NAMESPACE('valueString')),
+          valueInteger: getInteger(answerThing, FHIR_NAMESPACE('valueInteger')),
+          valueDecimal: getDecimal(answerThing, FHIR_NAMESPACE('valueDecimal')),
+          valueCoding: getUrl(answerThing, FHIR_NAMESPACE('valueCoding'))
+        });
 
-      // Add the item thing to the dataset
-      setThing(updatedDataset, itemThing);
+        // Add the answer thing to the dataset
+        dataset = setThing(dataset, answerThing);
+      });
     });
 
-    return updatedDataset;
+    console.log('Final dataset structure:', {
+      thingCount: Object.keys(dataset.graphs.default).length,
+      things: Object.keys(dataset.graphs.default).map(id => ({
+        id,
+        type: getUrl(dataset.graphs.default[id], RDF_NAMESPACE('type'))
+      }))
+    });
+
+    return dataset;
   }
 
   /**
@@ -160,8 +216,22 @@ export class ConversionService {
         }
 
         const valueCoding = getUrl(answerThing, FHIR_NAMESPACE('valueCoding'));
-        if (valueCoding !== undefined) {
-          answer.valueCoding = { code: valueCoding };
+        if (valueCoding !== undefined && valueCoding !== null) {
+          // Check if this is a SNOMED code
+          if (valueCoding.startsWith('http://snomed.info/sct/')) {
+            answer.valueCoding = {
+              system: 'http://snomed.info/sct',
+              code: valueCoding.replace('http://snomed.info/sct/', ''),
+              display: '' // We don't store the display text in RDF
+            };
+          } else {
+            const urlParts = valueCoding.split('/');
+            answer.valueCoding = {
+              system: urlParts[0] + '//' + urlParts[2],
+              code: urlParts[urlParts.length - 1] || '',
+              display: '' // We don't store the display text in RDF
+            };
+          }
         }
 
         // Add timestamp if available
