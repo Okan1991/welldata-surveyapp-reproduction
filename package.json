@@ -10,8 +10,9 @@
     "dev:app1": "cd app && npm run dev",
     "dev:app2": "cd app2 && npm run dev",
     "dev:welldata": "cd welldata && npm run dev",
-    "dev": "concurrently \"npm run start:server\" \"sleep 5 && npm run register-clients\" \"npm run dev:app1\" \"npm run dev:app2\" \"npm run dev:welldata\"",
-    "dev:minimal": "concurrently \"npm run start:server\" \"sleep 5 && npm run register-clients\" \"npm run dev:welldata\"",
+    "dev:surveyapp": "cd surveyapp && npm run dev",
+    "dev": "concurrently \"npm run start:server\" \"sleep 5 && npm run register-clients\" \"npm run dev:app1\" \"npm run dev:app2\" \"npm run dev:welldata\" \"npm run dev:surveyapp\"",
+    "dev:minimal": "concurrently \"npm run start:server\" \"sleep 5 && npm run register-clients\" \"npm run dev:welldata\" \"npm run dev:surveyapp\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -36,7 +36,15 @@ import {
   useDisclosure,
   InputGroup,
   InputRightElement,
-  ModalCloseButton
+  ModalCloseButton,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Select,
+  Input as ChakraInput,
 } from '@chakra-ui/react';
 import {
   getSolidDataset,
@@ -48,20 +56,30 @@ import {
   FetchError,
   getFile,
   getFileWithAcl,
+  getThingAll,
+  getUrl,
+  getDatetime,
 } from '@inrupt/solid-client';
 import { 
   fetch,
   getDefaultSession
 } from '@inrupt/solid-client-authn-browser';
 import { deleteContainerRecursively } from '../services/podService';
-import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
+import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon, ViewIcon } from '@chakra-ui/icons';
 import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
 import FhirPlanModal from './FhirPlanModal';
+import QuestionnaireViewer from './QuestionnaireViewer';
+import QuestionnaireResponseViewer from './QuestionnaireResponseViewer';
 
 // Define the ContainerItem type
 type ContainerItem = {
   url: string;
   name: string;
+  metadata?: {
+    questionnaireName?: string;
+    authored?: string;
+    answerCount?: number;
+  };
 };
 
 // Simple icons using inline SVG
@@ -102,8 +120,16 @@ const PodManager = () => {
   const { isOpen: isUrlModalOpen, onOpen: onUrlModalOpen, onClose } = useDisclosure();
   const [previewFileData, setPreviewFileData] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [selectedQuestionnaireUrl, setSelectedQuestionnaireUrl] = useState<string | null>(null);
+  const [selectedResponseUrl, setSelectedResponseUrl] = useState<string | null>(null);
   
   const toast = useToast();
+
+  // Add sorting and filtering state
+  const [sortField, setSortField] = useState<keyof ContainerItem>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     const session = getDefaultSession();
@@ -142,7 +168,14 @@ const PodManager = () => {
   // Add a useEffect to check for welldata container when the current URL changes
   useEffect(() => {
     if (currentUrl) {
-      checkWelldataContainer(currentUrl);
+      // Only check for welldata container if we're at the root level of the user's pod
+      const webIdUrl = new URL(getDefaultSession().info.webId || '');
+      const pathParts = webIdUrl.pathname.split('/').filter(Boolean);
+      const userPodRoot = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/${pathParts[0]}/`;
+      
+      if (currentUrl === userPodRoot) {
+        checkWelldataContainer(currentUrl);
+      }
     }
   }, [currentUrl]);
 
@@ -153,7 +186,54 @@ const PodManager = () => {
     try {
       const dataset = await getSolidDataset(url, { fetch });
       const containedUrls = getContainedResourceUrlAll(dataset);
-      setContainerItems(containedUrls.map(url => ({ url, name: url.split('/').filter(Boolean).pop() || '' })));
+      
+      // Process items and fetch metadata for questionnaire responses
+      const processedItems = await Promise.all(containedUrls.map(async (url) => {
+        const item: ContainerItem = { 
+          url, 
+          name: url.split('/').filter(Boolean).pop() || '' 
+        };
+
+        // If this is a questionnaire response, fetch its metadata
+        if (url.endsWith('.ttl') && url.includes('/data/surveys/responses/')) {
+          try {
+            const responseDataset = await getSolidDataset(url, { fetch });
+            const things = getThingAll(responseDataset);
+            
+            // Find the main response thing
+            const responseThing = things.find(thing => {
+              const type = getUrl(thing, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type');
+              return type === 'http://hl7.org/fhir/QuestionnaireResponse';
+            });
+
+            if (responseThing) {
+              // Get the questionnaire URL and extract its name
+              const questionnaireUrl = getUrl(responseThing, 'http://hl7.org/fhir/questionnaire');
+              if (questionnaireUrl) {
+                const questionnaireName = questionnaireUrl.split('/').pop()?.replace('.ttl', '') || '';
+                
+                // Count answer items
+                const answerItems = things.filter(thing => {
+                  const type = getUrl(thing, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type');
+                  return type === 'http://hl7.org/fhir/QuestionnaireResponseItem';
+                });
+
+                item.metadata = {
+                  questionnaireName,
+                  authored: getDatetime(responseThing, 'http://hl7.org/fhir/authored')?.toISOString() || '',
+                  answerCount: answerItems.length
+                };
+              }
+            }
+          } catch (e) {
+            console.error('Error fetching response metadata:', e);
+          }
+        }
+
+        return item;
+      }));
+
+      setContainerItems(processedItems);
       setCurrentUrl(url);
       
       // Update breadcrumbs
@@ -441,85 +521,73 @@ const PodManager = () => {
   };
 
   const previewFile = async (file) => {
-    setPreviewFileData({...file, content: "Loading content..."});
-    setIsPreviewModalOpen(true);
-    
-    try {
-      // For FHIR plan files, use the same approach as FhirPlanModal
-      if (file.url.endsWith('.ttl') && file.url.includes('/plans/')) {
-        const plan = await getFHIRPlan(file.url);
-        if (plan) {
-          setPreviewFileData({...file, content: JSON.stringify(plan, null, 2), isPlan: true});
-        } else {
-          setPreviewFileData({...file, content: "Could not load FHIR plan data", isPlan: true});
-        }
-      } else {
-        // For other files, fetch and display raw content
-        const response = await getFile(file.url, { fetch });
-        const text = await response.text();
-        setPreviewFileData({...file, content: text});
-      }
-    } catch (error) {
-      console.error('Error loading file content:', error);
-      setPreviewFileData({...file, content: `Error loading file content: ${error.message || 'Unknown error'}`});
+    console.log('previewFile called with:', file);
+    // Check if this is a questionnaire file
+    if (file.url.endsWith('.ttl') && file.url.includes('/metadata/surveys/definitions/')) {
+      console.log('Setting selectedQuestionnaireUrl to:', file.url);
+      setSelectedQuestionnaireUrl(file.url);
+      return;
     }
+
+    // For FHIR plan files, use the same approach as FhirPlanModal
+    if (file.url.endsWith('.ttl') && file.url.includes('/plans/')) {
+      console.log('Loading FHIR plan from:', file.url);
+      const plan = await getFHIRPlan(file.url);
+      if (plan) {
+        setPreviewFileData({...file, content: JSON.stringify(plan, null, 2), isPlan: true});
+      } else {
+        setPreviewFileData({...file, content: "Could not load FHIR plan data", isPlan: true});
+      }
+    } else {
+      // For other files, fetch and display raw content
+      console.log('Loading raw content from:', file.url);
+      const response = await getFile(file.url, { fetch });
+      const text = await response.text();
+      setPreviewFileData({...file, content: text});
+    }
+    console.log('Setting isPreviewModalOpen to true');
+    setIsPreviewModalOpen(true);
   };
 
-  const renderItem = (item: ContainerItem) => {
-    const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
-    const isContainer = item.url.endsWith('/');
-    // Only identify the welldata container itself, not containers within it
-    const isWelldataContainer = item.url.includes('/welldata/') && 
-                               item.url.endsWith('/') && 
-                               item.name === 'welldata';
-    
-    return (
-      <HStack key={item.url} justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
-        <HStack flex={1} cursor="pointer" onClick={() => handleItemClick(item)}>
-          {isContainer ? <FolderIcon /> : <FileIcon />}
-          <Text>{item.name}</Text>
-          {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
-          {isWelldataContainer && (
-            <IconButton
-              aria-label="View Container URL"
-              icon={<InfoIcon />}
-              size="sm"
-              variant="ghost"
-              colorScheme="blue"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUrlModalOpen();
-              }}
-            />
-          )}
-        </HStack>
-        <HStack>
-          {isPlan && (
-            <IconButton
-              aria-label="Download FHIR JSON"
-              icon={<DownloadIcon />}
-              size="sm"
-              colorScheme="blue"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownloadFHIRJSON(item.url);
-              }}
-            />
-          )}
-          <IconButton
-            aria-label="Delete"
-            icon={<DeleteIcon />}
-            size="sm"
-            colorScheme="red"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteClick(item.url, false);
-            }}
-          />
-        </HStack>
-      </HStack>
+  // Add sorting function
+  const sortItems = (items: ContainerItem[]) => {
+    return [...items].sort((a, b) => {
+      if (sortField === 'metadata') {
+        const aValue = a.metadata?.authored || '';
+        const bValue = b.metadata?.authored || '';
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      return sortDirection === 'asc'
+        ? String(aValue).localeCompare(String(bValue))
+        : String(bValue).localeCompare(String(aValue));
+    });
+  };
+
+  // Add filtering function
+  const filterItems = (items: ContainerItem[]) => {
+    return items.filter(item => {
+      const matchesType = filterType === 'all' || 
+        (filterType === 'response' && item.url.includes('/data/surveys/responses/')) ||
+        (filterType === 'questionnaire' && item.url.includes('/metadata/surveys/definitions/')) ||
+        (filterType === 'plan' && item.url.includes('/plans/'));
+      
+      const matchesSearch = searchQuery === '' || 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.metadata?.questionnaireName?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      return matchesType && matchesSearch;
+    });
+  };
+
+  // Add a function to check if container contains questionnaire responses
+  const hasQuestionnaireResponses = (items: ContainerItem[]) => {
+    return items.some(item => 
+      item.url.endsWith('.ttl') && 
+      item.url.includes('/data/surveys/responses/')
     );
   };
 
@@ -576,13 +644,218 @@ const PodManager = () => {
             <Spinner size="xl" color="purple.500" />
           </Flex>
         ) : containerItems.length > 0 ? (
-          <List spacing={2}>
-            {containerItems.map((item) => (
-              <ListItem key={item.url}>
-                {renderItem(item)}
-              </ListItem>
-            ))}
-          </List>
+          <>
+            {/* Only show filters and table for containers with questionnaire responses */}
+            {hasQuestionnaireResponses(containerItems) && (
+              <>
+                <HStack spacing={4} mb={4}>
+                  <Select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    width="200px"
+                  >
+                    <option value="all">All Items</option>
+                    <option value="response">Responses</option>
+                    <option value="questionnaire">Questionnaires</option>
+                    <option value="plan">Plans</option>
+                  </Select>
+                  <ChakraInput
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    width="300px"
+                  />
+                </HStack>
+                
+                <Box overflowX="auto">
+                  <Table variant="simple" bg="white" borderRadius="md">
+                    <Thead>
+                      <Tr>
+                        <Th cursor="pointer" onClick={() => {
+                          setSortField('name');
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        }}>
+                          Name
+                        </Th>
+                        <Th>Type</Th>
+                        <Th cursor="pointer" onClick={() => {
+                          setSortField('metadata');
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        }}>
+                          Submitted
+                        </Th>
+                        <Th>Questionnaire</Th>
+                        <Th>Answers</Th>
+                        <Th>Actions</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {filterItems(sortItems(containerItems)).map((item) => {
+                        const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
+                        const isQuestionnaire = item.url.endsWith('.ttl') && item.url.includes('/metadata/surveys/definitions/');
+                        const isResponse = item.url.endsWith('.ttl') && item.url.includes('/data/surveys/responses/');
+                        const isContainer = item.url.endsWith('/');
+                        
+                        return (
+                          <Tr key={item.url} _hover={{ bg: 'gray.50' }}>
+                            <Td>
+                              <HStack>
+                                {isContainer ? <FolderIcon /> : <FileIcon />}
+                                <Text>{item.name}</Text>
+                              </HStack>
+                            </Td>
+                            <Td>
+                              {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
+                              {isQuestionnaire && <Badge colorScheme="blue">Questionnaire</Badge>}
+                              {isResponse && <Badge colorScheme="purple">Response</Badge>}
+                            </Td>
+                            <Td>
+                              {item.metadata?.authored && 
+                                new Date(item.metadata.authored).toLocaleString()}
+                            </Td>
+                            <Td>{item.metadata?.questionnaireName || '-'}</Td>
+                            <Td>{item.metadata?.answerCount || '-'}</Td>
+                            <Td>
+                              <HStack spacing={2}>
+                                {isPlan && (
+                                  <IconButton
+                                    aria-label="Download FHIR JSON"
+                                    icon={<DownloadIcon />}
+                                    size="sm"
+                                    colorScheme="blue"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownloadFHIRJSON(item.url);
+                                    }}
+                                  />
+                                )}
+                                {isQuestionnaire && (
+                                  <IconButton
+                                    aria-label="View questionnaire"
+                                    icon={<ViewIcon />}
+                                    size="sm"
+                                    variant="ghost"
+                                    colorScheme="blue"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedQuestionnaireUrl(item.url);
+                                    }}
+                                  />
+                                )}
+                                {isResponse && (
+                                  <IconButton
+                                    aria-label="View response"
+                                    icon={<ViewIcon />}
+                                    size="sm"
+                                    variant="ghost"
+                                    colorScheme="purple"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedResponseUrl(item.url);
+                                    }}
+                                  />
+                                )}
+                                <IconButton
+                                  aria-label="Delete"
+                                  icon={<DeleteIcon />}
+                                  size="sm"
+                                  colorScheme="red"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteClick(item.url, false);
+                                  }}
+                                />
+                              </HStack>
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                    </Tbody>
+                  </Table>
+                </Box>
+              </>
+            )}
+
+            {/* Show list view for containers without questionnaire responses */}
+            {!hasQuestionnaireResponses(containerItems) && (
+              <List spacing={2}>
+                {containerItems.map((item) => {
+                  const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
+                  const isQuestionnaire = item.url.endsWith('.ttl') && item.url.includes('/metadata/surveys/definitions/');
+                  const isResponse = item.url.endsWith('.ttl') && item.url.includes('/data/surveys/responses/');
+                  const isContainer = item.url.endsWith('/');
+                  
+                  return (
+                    <ListItem key={item.url}>
+                      <HStack justify="space-between" w="100%" p={2} _hover={{ bg: 'gray.50' }} borderRadius="md">
+                        <HStack flex={1} cursor="pointer" onClick={() => handleItemClick(item)}>
+                          {isContainer ? <FolderIcon /> : <FileIcon />}
+                          <Text>{item.name}</Text>
+                          {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
+                          {isQuestionnaire && <Badge colorScheme="blue">Questionnaire</Badge>}
+                          {isResponse && <Badge colorScheme="purple">Response</Badge>}
+                        </HStack>
+                        <HStack>
+                          {isPlan && (
+                            <IconButton
+                              aria-label="Download FHIR JSON"
+                              icon={<DownloadIcon />}
+                              size="sm"
+                              colorScheme="blue"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadFHIRJSON(item.url);
+                              }}
+                            />
+                          )}
+                          {isQuestionnaire && (
+                            <IconButton
+                              aria-label="View questionnaire"
+                              icon={<ViewIcon />}
+                              size="sm"
+                              variant="ghost"
+                              colorScheme="blue"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedQuestionnaireUrl(item.url);
+                              }}
+                            />
+                          )}
+                          {isResponse && (
+                            <IconButton
+                              aria-label="View response"
+                              icon={<ViewIcon />}
+                              size="sm"
+                              variant="ghost"
+                              colorScheme="purple"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedResponseUrl(item.url);
+                              }}
+                            />
+                          )}
+                          <IconButton
+                            aria-label="Delete"
+                            icon={<DeleteIcon />}
+                            size="sm"
+                            colorScheme="red"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(item.url, false);
+                            }}
+                          />
+                        </HStack>
+                      </HStack>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            )}
+          </>
         ) : (
           <Box p={4} textAlign="center" bg="white" borderRadius="md">
             <Text color="gray.500">This container is empty</Text>
@@ -731,6 +1004,23 @@ const PodManager = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Add QuestionnaireViewer modal */}
+      {selectedQuestionnaireUrl && (
+        <QuestionnaireViewer
+          questionnaireUrl={selectedQuestionnaireUrl}
+          isOpen={!!selectedQuestionnaireUrl}
+          onClose={() => setSelectedQuestionnaireUrl(null)}
+        />
+      )}
+
+      {selectedResponseUrl && (
+        <QuestionnaireResponseViewer
+          responseUrl={selectedResponseUrl}
+          isOpen={!!selectedResponseUrl}
+          onClose={() => setSelectedResponseUrl(null)}
+        />
+      )}
     </Box>
   );
 };
