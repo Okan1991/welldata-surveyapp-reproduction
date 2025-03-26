@@ -1,125 +1,148 @@
-# WellData - Preventive Health Data Management
+# WellData - Your Personal Health Data Manager
 
-WellData is an application designed to enable citizens to manage their own preventive health data in a SOLID Pod, while also enabling secondary use of such data for policy makers and researchers. It represents a prototype implementation of a European Health Data Space focused on preventive health.
+A user-friendly application that helps you manage your preventive health data securely in your personal data pod. Built as part of the WellData ecosystem, this app enables you to organize your health information and share it with healthcare providers when needed.
 
-## Vision
+## What You Can Do
 
-WellData aims to create a citizen-centric health data ecosystem where:
+### 1. Manage Your Health Data
+- View and organize your health data in a structured way
+- Access your health plans and goals
+- Track your progress over time
+- Keep all your health information in one secure place
 
-1. Citizens have full control over their preventive health data
-2. Data can be shared across multiple health applications without duplication
-3. Anonymized data can be used for research and policy-making with citizen consent
-4. Communities can be motivated to improve health outcomes through social engagement
+### 2. Control Your Data
+- Store your data securely in your personal data pod
+- Choose who can access your health information
+- Share data with healthcare providers when needed
+- Export your data in standard formats
 
-## Current Features
+### 3. Connect with Health Apps
+- Integrate with existing health applications:
+  - [Selfcare](https://selfcare4me.com/)
+  - [Zipster](https://www.zipster.care/)
+  - [Bibopp](https://bibopp.be/)
+- Avoid duplicate data entry across apps
+- Keep your health data synchronized
 
+### 4. Future Features
+- View community health statistics
+- Compare your progress with others
+- Get personalized health recommendations
+- Support health research (with your consent)
+
+## Getting Started
+
+1. Log in with your SOLID pod credentials
+2. Your personal data pod will be automatically set up
+3. Start organizing your health data
+4. Connect with other health apps as needed
+
+## Known Issues and Future Development
+
+### Current Limitations
+1. **Data Organization**
+   - Limited support for complex health data structures
+   - Basic file and container management
+   - Future versions will include better data organization features
+
+2. **App Integration**
+   - Limited integration with external health apps
+   - Basic data synchronization
+   - Future versions will support more health apps
+
+3. **User Interface**
+   - Basic navigation and data viewing
+   - Limited data visualization
+   - Future versions will include better data presentation
+
+### Planned Improvements
+1. **Enhanced Data Management**
+   - Better organization of health data
+   - Improved data visualization
+   - Advanced search and filtering
+
+2. **App Integration**
+   - More health app connections
+   - Better data synchronization
+   - Enhanced data sharing options
+
+3. **User Experience**
+   - Improved navigation
+   - Better data presentation
+   - Enhanced mobile support
+
+## Technical Documentation
+
+### Features
 - User authentication with OpenID Connect via SOLID
-- Automatic creation of welldata container structure in user's SOLID Pod
-- FHIR-based data structure for storing health plans and goals
+- Automatic creation of welldata container structure
+- FHIR-based data structure for health plans and goals
 - Container and resource management
 - Modern, responsive UI with Chakra UI
 
-## Roadmap Features
+### Design Trade-offs
 
-- **Leaderboards**: 
-  - Citizen Engagement Leaderboard: Promoting user onboarding to gain control over their health data
-  - Data Solidarity Leaderboard: Benchmarking cities by percentage of citizens supporting health data sharing
-  - Initially populated with mock data, later with real anonymized statistics
+1. **Data Storage**:
+   - FHIR-compliant data structures
+   - Direct integration with Solid pod
+   - Trade-off: Requires careful handling of data relationships
 
-- **Personal Health Goals Management**:
-  - Interface for users to add and manage personal health goals
-  - Goal suggestions based on supported WellData system capabilities
+2. **User Interface**:
+   - Chakra UI for consistent design
+   - Responsive layout for all devices
+   - Trade-off: Larger bundle size compared to custom CSS
 
-- **Connected App Ecosystem**:
-  - Integration with existing health applications:
-    - [Selfcare](https://selfcare4me.com/)
-    - [Zipster](https://www.zipster.care/)
-    - [Bibopp](https://bibopp.be/)
-  - Shared data access through user's SOLID Pod to avoid duplicate data entry
+3. **Container Structure**:
+   - Organized data hierarchy
+   - Clear separation of concerns
+   - Trade-off: More complex navigation structure
 
-```mermaid
-graph TD;
-    subgraph User's SOLID Pod
-        HealthData[Health Data]
-        Goals[Personal Goals]
-        Connections[Connected Apps]
-    end
-    
-    Selfcare[Selfcare App] -->|Reads/Writes| HealthData
-    Selfcare -->|Reads/Writes| Goals
+## Development
 
-    Zipster[Zipster App] -->|Reads/Writes| HealthData
-    Zipster -->|Reads/Writes| Goals
+To start the development server:
 
-    Bibopp[Bibopp App] -->|Reads/Writes| HealthData
-    Bibopp -->|Reads/Writes| Goals
-
-    PolicyMakers[Policy Makers] -->|Request Aggregated Data| User's SOLID Pod
-    Researchers[Researchers] -->|Request Aggregated Data| User's SOLID Pod
-    
-
-### Explanation:
-- The **User's SOLID Pod** contains:
-  - **Health Data** (managed by apps like Selfcare, Zipster, and Bibopp).
-  - **Personal Goals** (set and updated by these apps).
-  - **Connected Apps** (indicating integration with WellData).
-- **Apps (Selfcare, Zipster, and Bibopp)**:
-  - Can **read and write** both Health Data and Goals.
-  - Avoid **duplicate data entry** by syncing via the Pod.
-- **Secondary Use (Future Feature)**:
-  - **Policy Makers** and **Researchers** may request **aggregated, user-controlled data**.
-  - The **general public** sees very aggregated data, e.g. via the leaderboards
-
-## Setup
-
-1. Install dependencies:
 ```bash
 npm install
-```
-
-2. Start the development server:
-```bash
 npm run dev
 ```
 
-3. Open http://localhost:5175 in your browser
-
-## Working with Solid Authentication and WebID
-
-WellData uses SOLID for decentralized data storage, giving users full control over their health data.
-
-### Authentication Flow
-
-1. **Login Process**:
-   - The application redirects to the Solid identity provider (http://localhost:3000)
-   - The user logs in with their credentials
-   - After successful authentication, the user is redirected back to the application
-   - The application automatically creates the welldata container structure if it doesn't exist
-
-2. **Using Your Local WebID**:
-   - For development, use the WebID generated by your local Community Solid Server
-   - This WebID is typically in the format: `http://localhost:3000/[pod-name]/profile/card#me`
-
-## Development Guidelines
-
-1. **Always use the local WebID for development**:
-   - This avoids CORS issues and simplifies the development process
-   - The local WebID is automatically configured with the correct permissions
-
-2. **Understanding the WellData Container Structure**:
-   - The application creates a structured container in the user's Pod
-   - This structure follows FHIR standards for health data
-   - See the [Technical Details](./docs/TECHNICAL_DETAILS.md) for more information
-
-## Documentation
-
-- [Components Overview](./docs/COMPONENTS.md) - Detailed explanation of application components
-- [Technical Details](./docs/TECHNICAL_DETAILS.md) - Implementation details and data structures
+The app will be available at http://localhost:5175
 
 ## Building for Production
+
+To create a production build:
 
 ```bash
 npm run build
 ```
 
-This will create a production-ready build in the `dist` directory. 
+To preview the production build:
+
+```bash
+npm run preview
+```
+
+## Project Structure
+
+```
+welldata/
+├── src/
+│   ├── components/         # React components
+│   │   ├── common/        # Shared components
+│   │   └── ...           # Feature-specific components
+│   ├── services/          # Business logic and API calls
+│   ├── types/            # TypeScript type definitions
+│   └── App.tsx           # Main application component
+├── docs/                 # Documentation
+│   ├── COMPONENTS.md     # Component documentation
+│   └── TECHNICAL_DETAILS.md # Technical implementation details
+└── public/               # Static assets
+```
+
+## Contributing
+
+Please read our [Development Guidelines](docs/development.md) before contributing to the project.
+
+## License
+
+This project is part of the WellData ecosystem and follows its licensing terms. See the main project's [README](../README.md) for license details. 
