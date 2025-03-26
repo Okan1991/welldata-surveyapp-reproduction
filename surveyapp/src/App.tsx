@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Box minH="100vh" bg={bgColor}>
         <Box
           as="header"
