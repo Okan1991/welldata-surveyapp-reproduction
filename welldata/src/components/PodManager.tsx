@@ -54,10 +54,11 @@ import {
   getDefaultSession
 } from '@inrupt/solid-client-authn-browser';
 import { deleteContainerRecursively } from '../services/podService';
-import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
+import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon, ViewIcon } from '@chakra-ui/icons';
 import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
 import FhirPlanModal from './FhirPlanModal';
 import QuestionnaireViewer from './QuestionnaireViewer';
+import QuestionnaireResponseViewer from './QuestionnaireResponseViewer';
 
 // Define the ContainerItem type
 type ContainerItem = {
@@ -104,6 +105,7 @@ const PodManager = () => {
   const [previewFileData, setPreviewFileData] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedQuestionnaireUrl, setSelectedQuestionnaireUrl] = useState<string | null>(null);
+  const [selectedResponseUrl, setSelectedResponseUrl] = useState<string | null>(null);
   
   const toast = useToast();
 
@@ -481,6 +483,7 @@ const PodManager = () => {
   const renderItem = (item: ContainerItem) => {
     const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
     const isQuestionnaire = item.url.endsWith('.ttl') && item.url.includes('/metadata/surveys/definitions/');
+    const isResponse = item.url.endsWith('.ttl') && item.url.includes('/data/surveys/responses/');
     const isContainer = item.url.endsWith('/');
     // Only identify the welldata container itself, not containers within it
     const isWelldataContainer = item.url.includes('/welldata/') && 
@@ -494,6 +497,7 @@ const PodManager = () => {
           <Text>{item.name}</Text>
           {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
           {isQuestionnaire && <Badge colorScheme="blue">Questionnaire</Badge>}
+          {isResponse && <Badge colorScheme="purple">Response</Badge>}
           {isWelldataContainer && (
             <IconButton
               aria-label="View Container URL"
@@ -519,6 +523,32 @@ const PodManager = () => {
               onClick={(e) => {
                 e.stopPropagation();
                 handleDownloadFHIRJSON(item.url);
+              }}
+            />
+          )}
+          {isQuestionnaire && (
+            <IconButton
+              aria-label="View questionnaire"
+              icon={<ViewIcon />}
+              size="sm"
+              variant="ghost"
+              colorScheme="blue"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedQuestionnaireUrl(item.url);
+              }}
+            />
+          )}
+          {isResponse && (
+            <IconButton
+              aria-label="View response"
+              icon={<ViewIcon />}
+              size="sm"
+              variant="ghost"
+              colorScheme="purple"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedResponseUrl(item.url);
               }}
             />
           )}
@@ -752,16 +782,15 @@ const PodManager = () => {
         <QuestionnaireViewer
           questionnaireUrl={selectedQuestionnaireUrl}
           isOpen={!!selectedQuestionnaireUrl}
-          onClose={() => {
-            console.log('QuestionnaireViewer onClose called');
-            setSelectedQuestionnaireUrl(null);
-          }}
-          onPreviewUrl={(url: string) => {
-            console.log('QuestionnaireViewer onPreviewUrl called with:', url);
-            setSelectedQuestionnaireUrl(null); // Close the questionnaire viewer first
-            console.log('Calling previewFile with:', { url, name: url.split('/').pop() || '' });
-            previewFile({ url, name: url.split('/').pop() || '' });
-          }}
+          onClose={() => setSelectedQuestionnaireUrl(null)}
+        />
+      )}
+
+      {selectedResponseUrl && (
+        <QuestionnaireResponseViewer
+          responseUrl={selectedResponseUrl}
+          isOpen={!!selectedResponseUrl}
+          onClose={() => setSelectedResponseUrl(null)}
         />
       )}
     </Box>
