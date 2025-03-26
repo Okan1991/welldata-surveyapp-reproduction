@@ -57,6 +57,7 @@ import { deleteContainerRecursively } from '../services/podService';
 import { RepeatIcon, ChevronRightIcon, DeleteIcon, DownloadIcon, InfoIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons';
 import { getFHIRPlan, downloadFHIRJSON } from '../services/fhirService';
 import FhirPlanModal from './FhirPlanModal';
+import QuestionnaireViewer from './QuestionnaireViewer';
 
 // Define the ContainerItem type
 type ContainerItem = {
@@ -102,6 +103,7 @@ const PodManager = () => {
   const { isOpen: isUrlModalOpen, onOpen: onUrlModalOpen, onClose } = useDisclosure();
   const [previewFileData, setPreviewFileData] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [selectedQuestionnaireUrl, setSelectedQuestionnaireUrl] = useState<string | null>(null);
   
   const toast = useToast();
 
@@ -142,7 +144,14 @@ const PodManager = () => {
   // Add a useEffect to check for welldata container when the current URL changes
   useEffect(() => {
     if (currentUrl) {
-      checkWelldataContainer(currentUrl);
+      // Only check for welldata container if we're at the root level of the user's pod
+      const webIdUrl = new URL(getDefaultSession().info.webId || '');
+      const pathParts = webIdUrl.pathname.split('/').filter(Boolean);
+      const userPodRoot = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/${pathParts[0]}/`;
+      
+      if (currentUrl === userPodRoot) {
+        checkWelldataContainer(currentUrl);
+      }
     }
   }, [currentUrl]);
 
@@ -441,32 +450,37 @@ const PodManager = () => {
   };
 
   const previewFile = async (file) => {
-    setPreviewFileData({...file, content: "Loading content..."});
-    setIsPreviewModalOpen(true);
-    
-    try {
-      // For FHIR plan files, use the same approach as FhirPlanModal
-      if (file.url.endsWith('.ttl') && file.url.includes('/plans/')) {
-        const plan = await getFHIRPlan(file.url);
-        if (plan) {
-          setPreviewFileData({...file, content: JSON.stringify(plan, null, 2), isPlan: true});
-        } else {
-          setPreviewFileData({...file, content: "Could not load FHIR plan data", isPlan: true});
-        }
-      } else {
-        // For other files, fetch and display raw content
-        const response = await getFile(file.url, { fetch });
-        const text = await response.text();
-        setPreviewFileData({...file, content: text});
-      }
-    } catch (error) {
-      console.error('Error loading file content:', error);
-      setPreviewFileData({...file, content: `Error loading file content: ${error.message || 'Unknown error'}`});
+    console.log('previewFile called with:', file);
+    // Check if this is a questionnaire file
+    if (file.url.endsWith('.ttl') && file.url.includes('/metadata/surveys/definitions/')) {
+      console.log('Setting selectedQuestionnaireUrl to:', file.url);
+      setSelectedQuestionnaireUrl(file.url);
+      return;
     }
+
+    // For FHIR plan files, use the same approach as FhirPlanModal
+    if (file.url.endsWith('.ttl') && file.url.includes('/plans/')) {
+      console.log('Loading FHIR plan from:', file.url);
+      const plan = await getFHIRPlan(file.url);
+      if (plan) {
+        setPreviewFileData({...file, content: JSON.stringify(plan, null, 2), isPlan: true});
+      } else {
+        setPreviewFileData({...file, content: "Could not load FHIR plan data", isPlan: true});
+      }
+    } else {
+      // For other files, fetch and display raw content
+      console.log('Loading raw content from:', file.url);
+      const response = await getFile(file.url, { fetch });
+      const text = await response.text();
+      setPreviewFileData({...file, content: text});
+    }
+    console.log('Setting isPreviewModalOpen to true');
+    setIsPreviewModalOpen(true);
   };
 
   const renderItem = (item: ContainerItem) => {
     const isPlan = item.url.endsWith('.ttl') && item.url.includes('/plans/');
+    const isQuestionnaire = item.url.endsWith('.ttl') && item.url.includes('/metadata/surveys/definitions/');
     const isContainer = item.url.endsWith('/');
     // Only identify the welldata container itself, not containers within it
     const isWelldataContainer = item.url.includes('/welldata/') && 
@@ -479,6 +493,7 @@ const PodManager = () => {
           {isContainer ? <FolderIcon /> : <FileIcon />}
           <Text>{item.name}</Text>
           {isPlan && <Badge colorScheme="green">FHIR Plan</Badge>}
+          {isQuestionnaire && <Badge colorScheme="blue">Questionnaire</Badge>}
           {isWelldataContainer && (
             <IconButton
               aria-label="View Container URL"
@@ -731,6 +746,24 @@ const PodManager = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Add QuestionnaireViewer modal */}
+      {selectedQuestionnaireUrl && (
+        <QuestionnaireViewer
+          questionnaireUrl={selectedQuestionnaireUrl}
+          isOpen={!!selectedQuestionnaireUrl}
+          onClose={() => {
+            console.log('QuestionnaireViewer onClose called');
+            setSelectedQuestionnaireUrl(null);
+          }}
+          onPreviewUrl={(url: string) => {
+            console.log('QuestionnaireViewer onPreviewUrl called with:', url);
+            setSelectedQuestionnaireUrl(null); // Close the questionnaire viewer first
+            console.log('Calling previewFile with:', { url, name: url.split('/').pop() || '' });
+            previewFile({ url, name: url.split('/').pop() || '' });
+          }}
+        />
+      )}
     </Box>
   );
 };

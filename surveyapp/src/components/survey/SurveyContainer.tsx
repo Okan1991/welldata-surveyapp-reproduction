@@ -8,6 +8,7 @@ import QuestionRenderer from './QuestionRenderer';
 import NavigationButtons from './NavigationButtons';
 import { useKeyboardNavigation } from '../../hooks/useKeyboardNavigation';
 import { useTranslation } from '../../hooks/useTranslation';
+import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
 
 interface SurveyContainerProps {
   survey: FHIRQuestionnaire;
@@ -136,19 +137,54 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       return;
     }
 
+    // Get the questionnaire URL from the metadata folder
+    const session = getDefaultSession();
+    if (!session.info.webId) {
+      throw new Error('User must be logged in to store responses');
+    }
+
+    // Extract the pod URL from the WebID
+    const webIdUrl = new URL(session.info.webId);
+    const pathParts = webIdUrl.pathname.split('/').filter(Boolean);
+    
+    // The first part of the path is usually the username/pod name
+    let podUrl = '';
+    if (pathParts.length > 0) {
+      podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/${pathParts[0]}/`;
+    } else {
+      podUrl = `${webIdUrl.protocol}//${webIdUrl.hostname}${webIdUrl.port ? ':' + webIdUrl.port : ''}/`;
+    }
+
+    console.log('Debug - Pod URL:', podUrl);
+    console.log('Debug - WebID:', session.info.webId);
+    console.log('Debug - Survey ID:', survey.id);
+
+    // Create the questionnaire URL in metadata/surveys/definitions
+    const questionnaireUrl = `${podUrl}welldata/metadata/surveys/definitions/${survey.id}.ttl`;
+    console.log('Debug - Constructed Questionnaire URL:', questionnaireUrl);
+
     // Store current page response before proceeding
     try {
       const currentPageResponse = {
         ...response,
         status: 'in-progress' as const,
+        questionnaire: questionnaireUrl,
         item: response.item.filter(item => 
           translatedSurvey.item.slice(0, currentQuestionIndex + 1)
             .some(q => q.linkId === item.linkId)
         )
       };
       
+      console.log('Debug - Current Page Response:', {
+        id: currentPageResponse.id,
+        questionnaire: currentPageResponse.questionnaire,
+        status: currentPageResponse.status,
+        itemCount: currentPageResponse.item.length
+      });
+      
       const stored = await storageService.storeResponse(currentPageResponse);
       if (!stored) {
+        console.error('Debug - Failed to store current page response');
         toast({
           title: 'Storage Error',
           description: 'Failed to store current page. Please try again.',
@@ -158,8 +194,16 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
         });
         return;
       }
+      console.log('Debug - Successfully stored current page response');
     } catch (error) {
-      console.error('Error storing current page:', error);
+      console.error('Debug - Error storing current page:', error);
+      if (error instanceof Error) {
+        console.error('Debug - Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      }
       toast({
         title: 'Error',
         description: 'An error occurred while saving your responses. Please try again.',
@@ -176,7 +220,8 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
       // Update status to completed
       const completedResponse = {
         ...response,
-        status: 'completed' as const
+        status: 'completed' as const,
+        questionnaire: questionnaireUrl // Use the same URL for the completed response
       };
 
       try {
