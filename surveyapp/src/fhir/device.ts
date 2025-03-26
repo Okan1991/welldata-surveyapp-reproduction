@@ -20,10 +20,11 @@ export const surveyDevice = {
   url: 'https://welldata.org'
 };
 
+// Device reference for the survey app
 export const deviceReference = {
-  reference: 'Device/welldata-survey-web',
+  reference: 'Device/survey-app',
   type: 'Device',
-  display: 'WellData Survey Web Application',
+  display: 'Survey Web Application',
   identifier: {
     system: 'urn:ietf:rfc:3986',
     value: 'https://welldata.org/devices/survey-web'

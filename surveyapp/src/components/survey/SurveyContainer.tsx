@@ -1,181 +1,218 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Heading, Text, VStack, useColorModeValue, Text as ChakraText } from '@chakra-ui/react';
-import { SurveyDefinition } from '../../surveys/types';
-import SurveyQuestion from './SurveyQuestion';
-import SurveyNavigation from './SurveyNavigation';
-import SurveyProgress from './SurveyProgress';
-import { translateSurvey } from '../../utils/language';
+import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
+import { Box, useToast } from '@chakra-ui/react';
+import { FHIRQuestionnaire, FHIRQuestionnaireResponse, FHIRAnswer } from '../../fhir/types';
+import { StorageService } from '../../services/storage';
+import { PodService } from '../../services/podService';
 import { deviceReference } from '../../fhir/device';
-import { FHIRQuestionnaireResponse, FHIRQuestionnaireResponseItem, FHIRValue } from '../../fhir/types';
+import QuestionRenderer from './QuestionRenderer';
+import NavigationButtons from './NavigationButtons';
+import { useKeyboardNavigation } from '../../hooks/useKeyboardNavigation';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface SurveyContainerProps {
-  survey: SurveyDefinition;
-  currentLanguage: string;
+  survey: FHIRQuestionnaire;
   onComplete: (response: FHIRQuestionnaireResponse) => void;
+  currentLanguage: string;
+  storageService: StorageService;
+  podService: PodService;
 }
 
 const SurveyContainer: React.FC<SurveyContainerProps> = ({
   survey,
-  currentLanguage,
   onComplete,
+  currentLanguage,
+  storageService,
+  podService,
 }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [questionnaireResponse, setQuestionnaireResponse] = useState<FHIRQuestionnaireResponse>({
+  const [response, setResponse] = useState<FHIRQuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
-    id: `qr-${survey.id}-${new Date().toISOString()}`,
-    questionnaire: `Questionnaire/${survey.id}`,
+    id: crypto.randomUUID(),
+    questionnaire: survey.id,
     status: 'in-progress',
     authored: new Date().toISOString(),
     source: deviceReference,
     item: []
   });
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [translatedSurvey, setTranslatedSurvey] = useState(() => translateSurvey(survey, currentLanguage));
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const questionRef = React.useRef<HTMLDivElement>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [translatedSurvey, setTranslatedSurvey] = useState(survey);
+  const toast = useToast();
 
-  // Update translations when language changes
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { handleKeyDown: handleKeyboardNav } = useKeyboardNavigation({
+    onNext: () => handleNext(),
+    onPrevious: () => handlePrevious(),
+    isEnabled: true
+  });
+
+  // Translate the survey when language changes
   useEffect(() => {
-    const newTranslatedSurvey = translateSurvey(survey, currentLanguage);
-    setTranslatedSurvey(newTranslatedSurvey);
-  }, [currentLanguage, survey]);
+    const translated = useTranslation(survey, currentLanguage);
+    setTranslatedSurvey(translated);
+  }, [survey, currentLanguage]);
 
-  const currentQuestion = translatedSurvey.item[currentQuestionIndex];
-  const totalQuestions = translatedSurvey.item.length;
+  // Focus management
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+  }, [currentQuestionIndex]);
 
-  const getFHIRValue = (value: any, type: string): FHIRValue => {
-    switch (type) {
-      case 'boolean':
-        return { valueBoolean: value };
-      case 'text':
-        return { valueString: value };
-      case 'number':
-        return { valueDecimal: value };
-      case 'choice':
-      case 'snomed':
-        const selectedOption = currentQuestion.answerOption?.find(
-          (opt: { valueCoding: Array<{ system: string; code: string; display: string }> }) => opt.valueCoding?.[0]?.code === value
-        );
-        return {
-          valueCoding: selectedOption?.valueCoding?.[0] || {
-            system: currentQuestion.answerOption?.[0]?.valueCoding?.[0]?.system || '',
-            code: value,
-            display: selectedOption?.valueCoding?.[0]?.display || ''
-          }
+  // Store questionnaire on first use
+  useEffect(() => {
+    const storeQuestionnaire = async () => {
+      try {
+        const stored = await podService.storeQuestionnaire(survey);
+        if (!stored) {
+          console.error('Failed to store questionnaire');
+        }
+      } catch (error) {
+        console.error('Error storing questionnaire:', error);
+      }
+    };
+    storeQuestionnaire();
+  }, [survey, podService]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    handleKeyboardNav(event);
+  };
+
+  const handleAnswer = (linkId: string, answer: FHIRAnswer) => {
+    setResponse(prev => {
+      const newResponse = { ...prev };
+      const existingItemIndex = newResponse.item.findIndex(item => item.linkId === linkId);
+
+      if (existingItemIndex >= 0) {
+        newResponse.item[existingItemIndex] = {
+          ...newResponse.item[existingItemIndex],
+          answer: [answer]
         };
-      default:
-        return { valueString: String(value) };
+      } else {
+        newResponse.item.push({
+          linkId,
+          answer: [answer]
+        });
+      }
+
+      return newResponse;
+    });
+
+    // Clear any errors for this question
+    if (errors[linkId]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[linkId];
+        return newErrors;
+      });
     }
   };
 
-  const insertAnswerWithTimestamp = (newItem: FHIRQuestionnaireResponseItem) => {
-    const timestamp = new Date(newItem.answer[0].extension?.[0].valueDateTime || '').getTime();
-    
-    setQuestionnaireResponse(prev => {
-      const newItems = [...prev.item];
-      let insertIndex = 0;
-      
-      // Find the correct position based on timestamp
-      while (insertIndex < newItems.length) {
-        const existingTimestamp = new Date(newItems[insertIndex].answer[0].extension?.[0].valueDateTime || '').getTime();
-        if (timestamp < existingTimestamp) {
-          break;
-        }
-        insertIndex++;
-      }
-      
-      // Insert the new item at the correct position
-      newItems.splice(insertIndex, 0, newItem);
-      
-      return {
-        ...prev,
-        item: newItems
-      };
-    });
-  };
+  const validateCurrentQuestion = (): boolean => {
+    const currentQuestion = translatedSurvey.item[currentQuestionIndex];
+    if (!currentQuestion) return true;
 
-  const handleAnswer = (questionId: string, value: any) => {
-    const timestamp = new Date().toISOString();
-    const fhirValue = getFHIRValue(value, currentQuestion.type);
-    
-    setQuestionnaireResponse(prev => {
-      // Remove any existing answer for this question
-      const filteredItems = prev.item.filter(item => item.linkId !== questionId);
-      
-      // Create new answer item
-      const newItem: FHIRQuestionnaireResponseItem = {
-        linkId: questionId,
-        answer: [{
-          value: fhirValue,
-          extension: [{
-            url: 'http://hl7.org/fhir/StructureDefinition/questionnaireresponse-answer-time',
-            valueDateTime: timestamp
-          }]
-        }]
-      };
-
-      // Insert new answer at the correct position based on timestamp
-      const newItems = [...filteredItems];
-      let insertIndex = 0;
-      
-      while (insertIndex < newItems.length) {
-        const existingTimestamp = new Date(newItems[insertIndex].answer[0].extension?.[0].valueDateTime || '').getTime();
-        const newTimestamp = new Date(timestamp).getTime();
-        if (newTimestamp < existingTimestamp) {
-          break;
-        }
-        insertIndex++;
-      }
-      
-      newItems.splice(insertIndex, 0, newItem);
-      
-      const updatedResponse = {
-        ...prev,
-        item: newItems
-      };
-
-      // Debug output when answer is submitted or updated
-      console.log('Survey State Update:', {
-        questionnaire: {
-          resourceType: 'Questionnaire',
-          id: survey.id,
-          title: translatedSurvey.title,
-          description: translatedSurvey.description,
-          status: 'active',
-          item: translatedSurvey.item.map(item => ({
-            linkId: item.linkId,
-            text: item.text,
-            type: item.type,
-            required: item.required,
-            answerOption: item.answerOption,
-            validation: item.validation
-          }))
-        },
-        questionnaireResponse: updatedResponse
-      });
-
-      return updatedResponse;
-    });
-
-    setErrors(prev => ({ ...prev, [questionId]: '' }));
-  };
-
-  const handleNext = () => {
-    const currentAnswer = questionnaireResponse.item.find(item => item.linkId === currentQuestion.linkId);
+    const currentAnswer = response.item.find(item => item.linkId === currentQuestion.linkId);
     
     if (currentQuestion.required && !currentAnswer) {
       setErrors(prev => ({
         ...prev,
-        [currentQuestion.linkId]: 'This question is required',
+        [currentQuestion.linkId]: 'This question is required'
       }));
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleNext = async () => {
+    if (!validateCurrentQuestion()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please answer the required question before proceeding.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
       return;
     }
 
-    if (currentQuestionIndex < totalQuestions - 1) {
+    // Store current page response before proceeding
+    try {
+      const currentPageResponse = {
+        ...response,
+        status: 'in-progress' as const,
+        item: response.item.filter(item => 
+          translatedSurvey.item.slice(0, currentQuestionIndex + 1)
+            .some(q => q.linkId === item.linkId)
+        )
+      };
+      
+      const stored = await storageService.storeResponse(currentPageResponse);
+      if (!stored) {
+        toast({
+          title: 'Storage Error',
+          description: 'Failed to store current page. Please try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error storing current page:', error);
+      toast({
+        title: 'Error',
+        description: 'An error occurred while saving your responses. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    if (currentQuestionIndex < translatedSurvey.item.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
-      setQuestionnaireResponse(prev => ({ ...prev, status: 'completed' }));
-      onComplete(questionnaireResponse);
+      // Update status to completed
+      const completedResponse = {
+        ...response,
+        status: 'completed' as const
+      };
+
+      try {
+        // Store the response
+        const stored = await storageService.storeResponse(completedResponse);
+        if (!stored) {
+          toast({
+            title: 'Storage Error',
+            description: 'Failed to store survey response. Please try again.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          });
+          return;
+        }
+
+        // Call onComplete callback
+        onComplete(completedResponse);
+
+        toast({
+          title: 'Survey Completed',
+          description: 'Your responses have been saved successfully.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        console.error('Error completing survey:', error);
+        toast({
+          title: 'Error',
+          description: 'An error occurred while saving your responses. Please try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     }
   };
 
@@ -185,143 +222,33 @@ const SurveyContainer: React.FC<SurveyContainerProps> = ({
     }
   };
 
-  // Handle keyboard navigation
-  const handleKeyDown = (event: KeyboardEvent) => {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const modifierKey = isMac ? event.metaKey : event.ctrlKey;
-    
-    // Handle arrow key navigation with Command/Ctrl modifier
-    if ((event.key === 'ArrowLeft' || event.key === 'Backspace') && modifierKey) {
-      event.preventDefault();
-      handlePrevious();
-    } else if ((event.key === 'ArrowRight' || event.key === 'Enter') && modifierKey) {
-      event.preventDefault();
-      handleNext();
-    }
-  };
-
-  // Add and remove keyboard event listener
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
-
-  // Focus management when question changes
-  useEffect(() => {
-    // Use a small delay to ensure the new question is rendered
-    const timer = setTimeout(() => {
-      if (questionRef.current) {
-        // Find the first interactive element within the question
-        const firstInteractive = questionRef.current.querySelector(
-          'input[type="radio"], input[type="checkbox"], input[type="text"], select, button'
-        ) as HTMLElement;
-        
-        if (firstInteractive) {
-          firstInteractive.focus();
-        }
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [currentQuestionIndex]);
-
-  // Get the appropriate shortcut text based on platform
-  const shortcutText = React.useMemo(() => {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const modifier = isMac ? '⌘' : 'Ctrl';
-    return `${modifier} + → (or ${modifier} + ↵) to continue, ${modifier} + ← (or ${modifier} + ⌫) to go back`;
-  }, []);
+  const currentQuestion = translatedSurvey.item[currentQuestionIndex];
+  const currentAnswer = response.item.find(item => item.linkId === currentQuestion?.linkId);
 
   return (
-    <VStack spacing={8} align="stretch" minH="calc(100vh - 200px)">
-      {/* Survey Header */}
-      <Box role="banner">
-        <Heading as="h1" size="xl" mb={4}>
-          {translatedSurvey.title}
-        </Heading>
-        {translatedSurvey.description && (
-          <Text fontSize="lg" color="gray.600">
-            {translatedSurvey.description}
-          </Text>
-        )}
-      </Box>
-
-      {/* Progress Indicator */}
-      <SurveyProgress
-        current={currentQuestionIndex + 1}
-        total={totalQuestions}
-        aria-label="Survey progress"
-      />
-
-      {/* Question Container */}
-      <Box
-        ref={questionRef}
-        role="main"
-        aria-live="polite"
-        aria-atomic="true"
-        aria-label={`Question ${currentQuestionIndex + 1} of ${totalQuestions}`}
-        flex={1}
-        display="flex"
-        flexDirection="column"
-        justifyContent="center"
-        minH="400px"
-      >
-        <SurveyQuestion
+    <Box
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      outline="none"
+      p={4}
+    >
+      {currentQuestion && (
+        <QuestionRenderer
           question={currentQuestion}
-          answer={(() => {
-            const currentAnswer = questionnaireResponse.item.find(item => item.linkId === currentQuestion.linkId);
-            if (!currentAnswer) return null;
-            
-            switch (currentQuestion.type) {
-              case 'boolean':
-                return currentAnswer.answer[0].value.valueBoolean;
-              case 'choice':
-              case 'snomed':
-                return currentAnswer.answer[0].value.valueCoding?.code;
-              case 'text':
-                return currentAnswer.answer[0].value.valueString;
-              case 'number':
-                return currentAnswer.answer[0].value.valueDecimal;
-              default:
-                return null;
-            }
-          })()}
+          answer={currentAnswer?.answer[0]}
+          onAnswer={(answer: FHIRAnswer) => handleAnswer(currentQuestion.linkId, answer)}
           error={errors[currentQuestion.linkId]}
-          onAnswer={handleAnswer}
-          language={currentLanguage}
         />
-        
-        {/* Keyboard Shortcut Hint */}
-        <ChakraText
-          fontSize="sm"
-          color="gray.500"
-          mt={4}
-          textAlign="center"
-          role="note"
-          aria-label={`Use ${shortcutText} for navigation`}
-        >
-          {shortcutText}
-        </ChakraText>
-      </Box>
+      )}
 
-      {/* Navigation */}
-      <Box
-        position="sticky"
-        bottom={0}
-        bg={bgColor}
-        py={4}
-        borderTop="1px"
-        borderColor="gray.200"
-      >
-        <SurveyNavigation
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-          isFirst={currentQuestionIndex === 0}
-          isLast={currentQuestionIndex === totalQuestions - 1}
-          aria-label="Survey navigation"
-        />
-      </Box>
-    </VStack>
+      <NavigationButtons
+        currentIndex={currentQuestionIndex}
+        totalQuestions={translatedSurvey.item.length}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+      />
+    </Box>
   );
 };
 

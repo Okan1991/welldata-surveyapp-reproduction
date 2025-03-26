@@ -1,6 +1,7 @@
 export interface FHIRValue {
   valueBoolean?: boolean;
   valueString?: string;
+  valueInteger?: number;
   valueDecimal?: number;
   valueCoding?: {
     system: string;
@@ -10,7 +11,15 @@ export interface FHIRValue {
 }
 
 export interface FHIRAnswer {
-  value: FHIRValue;
+  valueBoolean?: boolean;
+  valueString?: string;
+  valueInteger?: number;
+  valueDecimal?: number;
+  valueCoding?: {
+    system: string;
+    code: string;
+    display: string;
+  };
   extension?: Array<{
     url: string;
     valueDateTime: string;
@@ -28,6 +37,9 @@ export interface FHIRQuestionnaireResponse {
   questionnaire: string;
   status: 'in-progress' | 'completed';
   authored: string;
+  device?: {
+    reference: string;
+  };
   source: {
     reference: string;
     type: string;
