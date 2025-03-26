@@ -1,4 +1,4 @@
-import { SurveyDefinition, QuestionTranslation } from '../surveys/types';
+import { FHIRQuestionnaire, FHIRQuestionnaireItem } from '../fhir/types';
 import { en } from '../i18n/en';
 import { nl } from '../i18n/nl';
 
@@ -32,17 +32,17 @@ export const languages = [
 ];
 
 export const getStoredLanguage = (): string => {
-  return localStorage.getItem('selectedLanguage') || 'en';
+  return localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'en';
 };
 
 export const setStoredLanguage = (language: string): void => {
-  localStorage.setItem('selectedLanguage', language);
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
 };
 
-export const translateSurvey = (survey: SurveyDefinition, language: string): SurveyDefinition => {
+export const translateSurvey = (survey: FHIRQuestionnaire, language: string): FHIRQuestionnaire => {
   const t = translations[language] || translations['en'];
   
-  const translatedSurvey: SurveyDefinition = {
+  const translatedSurvey: FHIRQuestionnaire = {
     ...survey,
     title: t.survey.title,
     description: t.survey.description,
@@ -54,7 +54,7 @@ export const translateSurvey = (survey: SurveyDefinition, language: string): Sur
         ...option,
         valueCoding: [{
           ...option.valueCoding[0],
-          display: t.answers[option.valueString] || option.valueCoding[0].display
+          display: t.answers[option.valueCoding[0].code] || option.valueCoding[0].display
         }]
       }))
     }))

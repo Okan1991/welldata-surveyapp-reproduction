@@ -57,6 +57,7 @@ export interface FHIRQuestionnaireItem {
   text: string;
   type: 'boolean' | 'text' | 'number' | 'choice' | 'snomed';
   required?: boolean;
+  helpText?: string;
   answerOption?: Array<{
     valueCoding: Array<{
       system: string;

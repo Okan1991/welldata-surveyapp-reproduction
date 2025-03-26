@@ -1,11 +1,9 @@
-import { FHIRQuestionnaire } from '../fhir/types';
+import { FHIRQuestionnaire, FHIRQuestionnaireItem } from '../fhir/types';
+import { translateSurvey } from '../utils/language';
 
 export const useTranslation = (
   survey: FHIRQuestionnaire,
   language: string
 ): FHIRQuestionnaire => {
-  // For now, we'll just return the original survey
-  // In the future, this can be expanded to handle translations
-  // by looking for language-specific extensions in the FHIR resource
-  return survey;
+  return translateSurvey(survey, language);
 }; 
