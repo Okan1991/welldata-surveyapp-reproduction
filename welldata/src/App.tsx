@@ -201,6 +201,10 @@ function App() {
           </Popover>
         </Flex>
 
+
+        <CanvasComponent />
+
+
         {/* Main Content */}
         <Container maxW="container.lg" py={6} flex="1">
           {showSettings && isLoggedIn ? (
